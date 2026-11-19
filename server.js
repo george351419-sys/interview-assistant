@@ -9,6 +9,7 @@ const Hub = require('./lib/hub');
 
 config.load();
 const PORT = Number(process.env.PORT || config.get().port || 8787);
+const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC = path.join(__dirname, 'public');
 const APP_PASSWORD = process.env.APP_PASSWORD || '';
 const SESSION_SECRET = process.env.APP_SESSION_SECRET || APP_PASSWORD;
@@ -205,11 +206,38 @@ const hub = new Hub(server, AUTH_REQUIRED ? {
   }
 } : undefined);
 
-server.listen(PORT, '0.0.0.0', () => {
+// Keep WebSocket sessions active through EdgeOne's configurable idle timeout.
+// Browsers automatically answer WebSocket control-frame pings with pongs.
+const heartbeat = setInterval(() => {
+  for (const ws of hub.wss.clients) {
+    if (ws.isAlive === false) {
+      ws.terminate();
+      continue;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  }
+}, 25000);
+hub.wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+});
+
+function shutdown(signal) {
+  console.log(`[server] 收到 ${signal}，正在关闭服务…`);
+  clearInterval(heartbeat);
+  hub.wss.close();
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
+server.listen(PORT, HOST, () => {
   console.log('');
   console.log('  面试助手 · 真实可运行版');
   console.log('  ─────────────────────────────────');
-  console.log(`  服务已启动  http://localhost:${PORT}`);
+  console.log(`  服务已启动  http://${HOST}:${PORT}`);
   console.log(`  配置台      http://localhost:${PORT}/console.html`);
   console.log(`  提问端      http://localhost:${PORT}/interviewer.html`);
   console.log(`  手机提示屏  http://localhost:${PORT}/phone.html`);

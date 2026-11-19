@@ -1,0 +1,22 @@
+[Unit]
+Description=Interview Assistant Node.js service
+After=network.target
+
+[Service]
+Type=simple
+User=interview-assistant
+Group=interview-assistant
+WorkingDirectory=/opt/interview-assistant
+EnvironmentFile=/etc/interview-assistant.env
+Environment=HOST=127.0.0.1
+ExecStart=/usr/bin/node /opt/interview-assistant/server.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/interview-assistant/data
+
+[Install]
+WantedBy=multi-user.target

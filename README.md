@@ -74,9 +74,15 @@ npm start
 
 如果没有 API key，想用本机模型走链路 B：先 `brew install ollama && ollama pull qwen2.5:7b`，配置台 Provider 选 Ollama 即可。
 
-## 发布到公网（Render）
+## 发布到公网（腾讯云主机 + EdgeOne）
 
-GitHub 用来保存和协作管理代码；GitHub Pages 只托管静态文件，不能运行本项目需要的 Node.js 服务和 WebSocket。仓库提供 `render.yaml`，可通过 Render 创建 Node Web Service 并获得公网 HTTPS 地址。
+当前推荐用腾讯云主机持续运行 Node.js 服务，EdgeOne 为 `interview.playmath.cn` 提供 HTTPS 与 WebSocket 入口。此部署保留现有实时提示链路；主域名和画屏已有 DNS 记录无需变更。详细操作见 [`deploy/tencent-cvm/README.md`](deploy/tencent-cvm/README.md)。
+
+服务端每 25 秒发送 WebSocket 心跳，以保持 EdgeOne 转发连接活跃。EdgeOne 对该域名开启 WebSocket，并将空闲超时设置为 300 秒。
+
+### Render 备用部署
+
+GitHub Pages 只托管静态文件，不能运行本项目需要的 Node.js 服务和 WebSocket。仓库仍保留 `render.yaml` 作为备用部署方式。
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fgeorge351419-sys%2Finterview-assistant)
 
