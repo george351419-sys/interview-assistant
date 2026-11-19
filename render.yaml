@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: interview-assistant
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_PASSWORD
+        sync: false
+      - key: APP_SESSION_SECRET
+        generateValue: true
+      - key: LLM_PROVIDER
+        value: openai
+      - key: LLM_BASE_URL
+        sync: false
+      - key: LLM_MODEL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: ASR_PROVIDER
+        value: doubao
+      - key: ASR_API_KEY
+        sync: false

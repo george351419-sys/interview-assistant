@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>面试助手 · 真实运行版</title>
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap">
+  <div class="hero">
+    <h1>把面试练到不依赖提示</h1>
+    <p>和朋友或 AI 做一场模拟练习。电脑负责提问和记录回答，手机只显示简短提示；练完后再看复盘。</p>
+    <div class="compliance" style="display:inline-block">⚠️ <b>仅用于模拟练习</b>（对面是朋友 / AI）；不支持、不鼓励在真实面试中使用。</div>
+  </div>
+
+  <div class="cards">
+    <a class="card" href="console.html">
+      <div class="ic">①</div>
+      <h3>练习前 · 准备岗位资料 <span id="llmBadge" class="badge warn">检查中…</span></h3>
+      <p>确认目标 JD、简历和模型配置。第一次使用先测试连接。</p>
+      <div class="go">检查准备 →</div>
+    </a>
+    <a class="card" href="interviewer.html">
+      <div class="ic">②</div>
+      <h3>练习中 · 朋友提问</h3>
+      <p>打开提问端，用语音、文字或题库出题。建议同时在手机打开提示屏。</p>
+      <div class="go">开始提问 →</div>
+    </a>
+    <a class="card" href="practice.html">
+      <div class="ic">③</div>
+      <h3>练习后 · 复盘改进</h3>
+      <p>查看本场回答、耗时和教练反馈；点“结束本场并存档”保存历史。</p>
+      <div class="go">查看复盘 →</div>
+    </a>
+  </div>
+
+  <div class="panel" style="margin-top:20px">
+    <h2>一场练习怎么开始</h2>
+    <p class="sub">电脑与手机在同一 Wi-Fi；手机负责展示提示，回答需在“我的回答”页录音或输入。</p>
+    <ol style="color:var(--text-2);line-height:1.9">
+      <li>启动服务：<code>npm start</code>，浏览器打开 <code>http://localhost:8787</code>。</li>
+      <li>手机和电脑连同一 Wi-Fi，手机访问 <code>http://&lt;电脑局域网IP&gt;:8787/phone.html</code>。</li>
+      <li>配置台准备 JD、简历和模型；手机打开提示屏，电脑打开提问端。</li>
+      <li>朋友提问后，提问端把问题发送给 AI；你在“我的回答”页提交回答，供下一题参考。</li>
+      <li>到练习复盘页点击“结束本场并存档”，再查看报告或开始新一轮。系统音频自动采集仍属于进阶链路，需额外配置。</li>
+    </ol>
+    <p class="muted">隐私提示：本机 Ollama 可在本机运行；使用云端 LLM 或豆包 ASR 时，相关文本或音频会发送给对应服务。练习记录保存在本机 data/history 目录。当前服务未设置登录验证，请仅在可信的私人网络中使用。</p>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+document.getElementById('nav').innerHTML = IAC.nav('');
+IAC.setConn('#conn', 'warn', '本地');
+fetch('/api/llm/status').then(r=>r.json()).then(s=>{
+  const b=document.getElementById('llmBadge');
+  if(s.ready){b.className='badge ok';b.textContent='LLM 就绪';}
+  else{b.className='badge err';b.textContent='LLM 未配置';}
+}).catch(()=>{});
+</script>
+</body>
+</html>

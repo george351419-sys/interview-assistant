@@ -1,0 +1,19 @@
+{
+  "name": "interview-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "面试助手 - 练习场景下的实时手机提示屏（真实可运行版）",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --dev",
+    "check": "node scripts/check.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

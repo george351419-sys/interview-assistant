@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>配置台 · 面试助手</title>
+<link rel="stylesheet" href="css/app.css" />
+<style>
+  details{border-bottom:1px solid var(--border);padding:14px 0;}
+  summary{cursor:pointer;font-weight:600;list-style:none;display:flex;align-items:baseline;gap:8px;}
+  summary::-webkit-details-marker{display:none;}
+  summary::before{content:"▸";color:var(--text-3);transition:.15s;display:inline-block;}
+  details[open] summary::before{transform:rotate(90deg);}
+  .note{font-size:11.5px;font-weight:400;color:var(--text-3);}
+  .field{display:block;font-size:12.5px;color:var(--text-2);margin-top:11px;}
+  .field input,.field select{margin-top:5px;font-size:13px;}
+  .guide{background:var(--blue-soft);border-radius:10px;padding:12px 14px;font-size:12.5px;color:#1d4ed8;line-height:1.7;}
+  .log{max-height:220px;overflow:auto;font-size:12px;}
+  .log div{padding:6px 0;border-bottom:1px solid var(--border);}
+  code{background:var(--bg);padding:1px 6px;border-radius:5px;font-size:12px;}
+  .bank-items{margin-top:10px;}
+  .bi-row{display:flex;gap:9px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:7px;background:var(--surface);}
+  .bi-row .bi-n{font-size:12px;font-weight:700;color:var(--text-3);min-width:24px;padding-top:2px;}
+  .bi-row .bi-main{flex:1;min-width:0;}
+  .bi-row .bi-q{font-size:13px;line-height:1.5;word-break:break-word;}
+  .bi-row .bi-a{font-size:11.5px;color:var(--text-3);margin-top:3px;line-height:1.5;}
+  .bi-row .bi-ops{display:flex;gap:4px;align-items:center;flex-shrink:0;}
+  .bi-row .bi-ops button{border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);border-radius:7px;padding:4px 8px;font-size:11.5px;cursor:pointer;}
+  .bi-row .bi-ops button:hover{border-color:var(--blue);color:var(--blue);}
+  .bi-row .bi-ops button.del:hover{border-color:var(--red);color:var(--red);}
+  .bank-editor{border:1px solid var(--blue);background:var(--blue-soft);border-radius:10px;padding:11px;margin:10px 0;}
+  .bank-editor label{display:block;font-size:12px;color:var(--text-2);margin-bottom:7px;}
+  .bank-editor input,.bank-editor textarea{width:100%;font-size:13px;margin-top:4px;}
+  .hidden{display:none!important;}
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap">
+  <div class="panel">
+    <div class="spread">
+      <div><h2>配置台</h2><p class="sub">配置真实 LLM 与练习内容，改动会写入服务端 data/config.json</p></div>
+      <span id="llmState" class="badge warn">检查中…</span>
+    </div>
+    <div id="llmGuide" class="guide"></div>
+  </div>
+
+  <div class="panel">
+    <details open>
+      <summary>① LLM 接入 <span class="note">必须配置真实模型，否则拒绝生成（不用假数据冒充）</span></summary>
+      <label class="field">Provider
+        <select id="provider">
+          <option value="ollama">Ollama（本机免费、离线，推荐自用）</option>
+          <option value="openai">OpenAI 兼容接口（云端 API）</option>
+        </select>
+      </label>
+      <label class="field">Base URL
+        <input id="baseUrl" type="text" placeholder="http://127.0.0.1:11434 或 https://api.openai.com/v1" />
+      </label>
+      <label class="field">Model
+        <input id="model" type="text" placeholder="qwen2.5:7b 或 gpt-4o-mini" />
+      </label>
+      <label class="field">API Key（Ollama 留空；OpenAI 填 sk-…）
+        <input id="apiKey" type="password" placeholder="仅云端接口需要" />
+      </label>
+      <div class="row" style="margin-top:14px">
+        <button id="testLlm" class="btn sm">测试真实连接</button>
+        <span id="testResult" class="muted"></span>
+      </div>
+    </details>
+
+    <details open>
+      <summary>② 目标岗位 JD <span class="note">决定提示针对哪个岗位</span></summary>
+      <textarea id="jd" rows="7" style="margin-top:11px"></textarea>
+    </details>
+
+    <details open>
+      <summary>③ 我的简历 <span class="note">提示只引用真实经历，避免 AI 编造</span></summary>
+      <textarea id="resume" rows="9" style="margin-top:11px"></textarea>
+    </details>
+
+    <details open>
+      <summary>④ 陪练题库（模拟练习） <span class="note">可视化增删排序 · 保存即写入 config.json</span></summary>
+      <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:11px">
+        <button id="bankAdd" class="btn sm primary">＋ 新增题目</button>
+        <button id="bankImport" class="btn sm">从下方文本导入</button>
+        <button id="bankReload" class="btn sm">↻ 重载</button>
+        <span id="bankMsg" class="muted"></span>
+      </div>
+      <div id="bankEditor" class="bank-editor hidden">
+        <label>题目
+          <textarea id="bankQ" rows="2" placeholder="输入面试官会问的问题"></textarea>
+        </label>
+        <label>参考答案 / 提示要点（可留空）
+          <input id="bankA" type="text" placeholder="一句话参考思路" />
+        </label>
+        <div class="row" style="gap:8px">
+          <button id="bankSave" class="btn sm primary">保存题目</button>
+          <button id="bankCancel" class="btn sm ghost">取消</button>
+        </div>
+      </div>
+      <div id="bankItems" class="bank-items"><span class="muted">加载中…</span></div>
+      <p class="muted" style="font-size:11.5px;margin-top:10px">也可直接编辑下方原文（每行「题目 → 参考答案」），再点底部「保存配置」生效。</p>
+      <textarea id="bank" rows="5"></textarea>
+    </details>
+
+    <details>
+      <summary>⑤ 豆包 ASR（我的回答转写）<span class="note">流式识别 · 密钥只存服务端</span></summary>
+      <label class="field">API Key（新版控制台）
+        <input id="asrApiKey" type="password" placeholder="火山引擎控制台 > API Key 管理" />
+      </label>
+      <label class="field">或 App Key + Access Key（旧版控制台，二选一）
+        <div class="row" style="gap:8px">
+          <input id="asrAppKey" type="text" placeholder="App Key" style="flex:1" />
+          <input id="asrAccessKey" type="password" placeholder="Access Key" style="flex:1" />
+        </div>
+      </label>
+      <label class="field">Resource ID
+        <input id="asrResourceId" type="text" placeholder="volc.seedasr.sauc.duration" />
+      </label>
+      <p class="muted" style="font-size:12px">填好后到「我的回答」页开麦克风即可流式转写；不填则只能用文字输入回答。</p>
+    </details>
+
+    <div class="row" style="margin-top:18px">
+      <button id="save" class="btn primary">保存配置</button>
+      <button id="reset" class="btn ghost">恢复默认</button>
+      <span id="saveMsg" class="muted"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>运行事件</h2>
+    <p class="sub">实时显示提问 → 提示推送链路状态（通过 WebSocket）</p>
+    <div id="events" class="log"><div class="muted">等待事件…</div></div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+(function(){
+  document.getElementById('nav').innerHTML=IAC.nav('console');
+  const $=id=>document.getElementById(id);
+
+  function fill(cfg){
+    $('provider').value=cfg.llm.provider||'ollama';
+    $('baseUrl').value=cfg.llm.baseUrl||'';
+    $('model').value=cfg.llm.model||'';
+    $('apiKey').value=cfg.llm.apiKey||'';
+    $('jd').value=cfg.jd||'';
+    $('resume').value=cfg.resume||'';
+    $('bank').value=cfg.bank||'';
+    const a=cfg.asr||{};
+    $('asrApiKey').value=a.apiKey||'';
+    $('asrAppKey').value=a.appKey||'';
+    $('asrAccessKey').value=a.accessKey||'';
+    $('asrResourceId').value=a.resourceId||'';
+  }
+  function setLlmState(s){
+    const el=$('llmState');
+    el.className='badge '+(s.ready?'ok':'err');
+    el.textContent=s.ready?'LLM 就绪':'未配置';
+    $('llmGuide').innerHTML = s.ready
+      ? `✅ 已配置 <b>${esc(s.provider)}</b> · 模型 <code>${esc(s.model)}</code>。提问后会真实调用该模型生成提示。`
+      : `❌ 缺少：${s.missing.map(esc).join('、')}。<br>推荐本机免费方案：安装 Ollama → <code>ollama pull qwen2.5:7b</code> → 选择 Provider=Ollama，Base URL=<code>http://127.0.0.1:11434</code>，Model=<code>qwen2.5:7b</code>。或用云端 API 填 key。`;
+  }
+  function esc(s){return String(s==null?'':s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+  // ===== 陪练题库可视化管理 =====
+  let bankItems=[], bankEditIndex=-1;
+  function renderBankItems(){
+    const box=$('bankItems');
+    if(!bankItems.length){ box.innerHTML='<span class="muted" style="font-size:12.5px">题库为空，点「＋ 新增题目」或从下方文本导入。</span>'; return; }
+    box.innerHTML=bankItems.map((it,i)=>`<div class="bi-row">
+      <div class="bi-n">${i+1}</div>
+      <div class="bi-main"><div class="bi-q">${esc(it.question)}</div>${it.reference?`<div class="bi-a">参考：${esc(it.reference)}</div>`:''}</div>
+      <div class="bi-ops">
+        <button data-act="up" data-i="${i}" title="上移">↑</button>
+        <button data-act="down" data-i="${i}" title="下移">↓</button>
+        <button data-act="edit" data-i="${i}">编辑</button>
+        <button data-act="del" data-i="${i}" class="del">删除</button>
+      </div>
+    </div>`).join('');
+    box.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>bankAction(b.dataset.act,+b.dataset.i)));
+  }
+  function bankAction(act,i){
+    if(act==='edit'){
+      bankEditIndex=i; $('bankQ').value=bankItems[i].question; $('bankA').value=bankItems[i].reference||'';
+      $('bankEditor').classList.remove('hidden'); $('bankQ').focus(); return;
+    }
+    if(act==='del'){
+      if(!confirm('删除这道题？')) return;
+      bankItems.splice(i,1); return postBank({items:bankItems},'已删除题目');
+    }
+    if(act==='up'||act==='down'){
+      const j=act==='up'?i-1:i+1;
+      if(j<0||j>=bankItems.length) return;
+      [bankItems[i],bankItems[j]]=[bankItems[j],bankItems[i]];
+      return postBank({items:bankItems},'顺序已更新');
+    }
+  }
+  async function postBank(payload,msg){
+    $('bankMsg').textContent='保存中…';
+    try{
+      const r=await fetch('/api/bank',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json();
+      if(!d.ok) throw new Error(d.error||'保存失败');
+      bankItems=d.items||[]; $('bank').value=d.bank||''; renderBankItems();
+      $('bankMsg').textContent=(msg||'已保存')+' · 共 '+d.count+' 题';
+      client.send({type:'configChanged'});
+    }catch(e){ $('bankMsg').textContent=e.message; IAC.toast(e.message); }
+  }
+  async function reloadBank(){
+    try{
+      const d=await fetch('/api/bank').then(r=>r.json());
+      bankItems=d.items||[]; $('bank').value=d.bank||''; renderBankItems();
+      $('bankMsg').textContent='共 '+d.count+' 题';
+    }catch(e){ $('bankMsg').textContent='题库加载失败'; }
+  }
+  $('bankAdd').addEventListener('click',()=>{
+    bankEditIndex=-1; $('bankQ').value=''; $('bankA').value='';
+    $('bankEditor').classList.remove('hidden'); $('bankQ').focus();
+  });
+  $('bankCancel').addEventListener('click',()=>$('bankEditor').classList.add('hidden'));
+  $('bankSave').addEventListener('click',()=>{
+    const q=$('bankQ').value.replace(/\s+/g,' ').trim();
+    if(!q){ IAC.toast('题目不能为空'); return; }
+    const a=$('bankA').value.replace(/\s+/g,' ').trim();
+    if(bankEditIndex>=0) bankItems[bankEditIndex]={question:q,reference:a};
+    else bankItems.push({question:q,reference:a});
+    $('bankEditor').classList.add('hidden'); bankEditIndex=-1;
+    postBank({items:bankItems},'题目已保存');
+  });
+  $('bankImport').addEventListener('click',()=>{
+    if(!confirm('用下方文本覆盖当前题库？')) return;
+    postBank({bank:$('bank').value},'已从文本导入');
+  });
+  $('bankReload').addEventListener('click',reloadBank);
+
+  fetch('/api/config').then(r=>r.json()).then(d=>{fill(d.config);setLlmState(d.llm);reloadBank();}).catch(()=>IAC.toast('配置加载失败'));
+
+  $('save').addEventListener('click',async()=>{
+    const patch={
+      jd:$('jd').value, resume:$('resume').value, bank:$('bank').value,
+      llm:{provider:$('provider').value,baseUrl:$('baseUrl').value,model:$('model').value,apiKey:$('apiKey').value},
+      asr:{provider:'doubao',apiKey:$('asrApiKey').value,appKey:$('asrAppKey').value,accessKey:$('asrAccessKey').value,resourceId:$('asrResourceId').value||'volc.seedasr.sauc.duration'}
+    };
+    try{
+      const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+      const d=await r.json();
+      if(!d.ok) throw new Error(d.error||'保存失败');
+      fill(d.config); setLlmState(d.llm);
+      reloadBank(); // 若手改了题库原文，同步可视化列表
+      client.send({type:'configChanged'});
+      $('saveMsg').textContent='已保存到服务端';
+      IAC.toast('配置已保存');
+    }catch(e){ $('saveMsg').textContent=e.message; }
+  });
+
+  $('reset').addEventListener('click',async()=>{
+    if(!confirm('恢复默认配置？JD/简历/LLM 将被重置。'))return;
+    const r=await fetch('/api/config/reset',{method:'POST'});
+    const d=await r.json(); fill(d.config); setLlmState(d.llm); IAC.toast('已恢复默认');
+  });
+
+  let testPending=false, testTimer=null;
+  $('testLlm').addEventListener('click',async()=>{
+    $('testResult').textContent='测试中…';
+    // 先保存再测试
+    const patch={llm:{provider:$('provider').value,baseUrl:$('baseUrl').value,model:$('model').value,apiKey:$('apiKey').value}};
+    await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+    const s=await fetch('/api/llm/status').then(r=>r.json());
+    if(!s.ready){$('testResult').textContent='未就绪：缺 '+s.missing.join(',');return;}
+    // 复用长连接 client 发测试问题（不新建、不提前关闭连接），靠 testPending 匹配结果
+    testPending=true;
+    client.send({type:'question', text:'请用一句话自我介绍（用于测试 LLM 连接）', test:true});
+    clearTimeout(testTimer);
+    testTimer=setTimeout(()=>{ if(testPending){testPending=false;$('testResult').textContent='超时（>22s），请检查模型是否运行或换个更快的模型';} },22000);
+  });
+
+  const client=new IAC.Client('console',{
+    onOpen:()=>IAC.setConn('#conn','on','已连接'),
+    onClose:()=>IAC.setConn('#conn','err','重连中'),
+    onMessage:(m)=>{
+      if(m.type==='hello'){setLlmState(m.llm);}
+      if(m.type==='llmStatus'){setLlmState(m.llm);}
+      if(['transcript','hint','error','presence','answer','asr.partial','asr.final','asr.error','memory'].includes(m.type)) addEvent(m);
+      // 「测试真实连接」的结果匹配
+      if(testPending && m.test && (m.type==='hint'||m.type==='error')){
+        testPending=false; clearTimeout(testTimer);
+        if(m.type==='hint') $('testResult').textContent='✅ 真实调用成功 · '+m.source+' · '+m.latencyMs+'ms';
+        else $('testResult').textContent='❌ '+m.message;
+      }
+    }
+  });
+  function addEvent(m){
+    const box=$('events'); if(box.querySelector('.muted'))box.innerHTML='';
+    let t='',txt='';
+    if(m.type==='transcript'){t='提问';txt=m.text;}
+    else if(m.type==='hint'){t='提示';txt=(m.hintType||'')+' · '+m.source+' · '+m.latencyMs+'ms';}
+    else if(m.type==='error'){t='错误';txt=m.code+' · '+m.message;}
+    else if(m.type==='presence'){t='在线';txt=JSON.stringify(m.roles);}
+    else if(m.type==='answer'){t='我的回答';txt=m.text.slice(0,50);}
+    else if(m.type==='asr.partial'){t='ASR';txt='(中间) '+m.text.slice(0,40);}
+    else if(m.type==='asr.final'){t='ASR最终';txt=m.text.slice(0,50);}
+    else if(m.type==='asr.error'){t='ASR错误';txt=m.message;}
+    else if(m.type==='memory'){t='记忆';txt='已更新 '+((m.facts||[]).length)+' 条事实';}
+    const d=document.createElement('div');
+    d.innerHTML='<span class="t">'+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span>['+t+'] '+esc(txt);
+    box.insertBefore(d,box.firstChild);
+  }
+})();
+</script>
+</body>
+</html>

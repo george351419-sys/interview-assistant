@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>面试助手 · 手机提示屏（练习场景 MVP）</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== 顶栏 ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">面</span>
+      <div class="brand-text">
+        <h1>面试助手 <span class="tag">练习场景 · MVP 原型</span></h1>
+        <p class="subtitle">按 JD 改简历 → 朋友 / AI 出题 → 手机实时提示</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span class="status" id="connStatus"><i class="dot"></i><span>就绪</span></span>
+      <button id="openSettings" class="btn ghost">⚙ 配置</button>
+    </div>
+  </header>
+
+  <div class="compliance-banner">
+    ⚠️ 本工具<b>仅用于模拟练习</b>（对面是朋友 / AI）；不支持、也不鼓励在真实面试中使用。
+  </div>
+
+  <!-- ===== 主工作区 ===== -->
+  <main class="workspace">
+
+    <!-- ① 对面提问 -->
+    <section class="panel interviewer-panel">
+      <div class="panel-head">
+        <h2>① 对面提问 <span class="hint">模拟电脑端捕获的「对面音轨」</span></h2>
+        <span class="speaker-badge" id="speakerBadge">等待提问</span>
+      </div>
+
+      <div class="quick-questions">
+        <button class="chip" data-q="en">🌍 英文突袭</button>
+        <button class="chip" data-q="dilemma">⚖️ 两难决策</button>
+        <button class="chip" data-q="creative">💡 开放创意</button>
+        <button class="chip" data-q="project">🔍 项目深挖</button>
+        <button class="chip" data-q="salary">💰 薪资谈判</button>
+        <button class="chip" data-q="reverse">❓ 反问环节</button>
+      </div>
+
+      <textarea id="questionInput" rows="4" placeholder="输入面试官的问题，或点下方按钮对着麦克风说出来……&#10;例：Your biggest client wants a refund, but company policy doesn't allow it. What would you say?（请用英语回答）"></textarea>
+
+      <div class="input-actions">
+        <button id="micBtn" class="btn primary">🎤 听对面说</button>
+        <button id="askBtn" class="btn">生成提示 →</button>
+        <label class="lang-select">识别语言
+          <select id="recogLang">
+            <option value="zh-CN">中文</option>
+            <option value="en-US">English</option>
+          </select>
+        </label>
+      </div>
+      <p class="mic-hint" id="micHint">麦克风识别用浏览器 Web Speech API（Chrome 支持最好）；不可用时直接用文本输入，效果一致。</p>
+
+      <div class="pipeline-note">
+        <b>链路：</b>对面音轨 → VAD 切片 → ASR 转写 → <span class="red">LLM ＋ JD / 简历上下文</span> → 手机提示屏
+      </div>
+    </section>
+
+    <!-- ② 手机提示屏 -->
+    <section class="panel phone-panel">
+      <div class="panel-head">
+        <h2>② 手机提示屏 <span class="hint">核心交付物 · 独立设备物理隔离</span></h2>
+        <button id="myTurnBtn" class="btn ghost sm" title="模拟 FR-12：声纹识别到本人说话时自动收起提示">🙋 我在说话（收起提示）</button>
+      </div>
+
+      <div class="phone-stage">
+        <div class="phone-mockup">
+          <div class="phone-notch"></div>
+          <div class="phone-screen" id="phoneScreen">
+            <div class="phone-status">
+              <span>面试助手 · 练习模式</span>
+              <span id="latencyBadge" class="latency">—</span>
+            </div>
+            <div class="phone-scroll" id="promptStack">
+              <div class="empty-state" id="emptyState">
+                <div class="empty-icon">◌</div>
+                <p>等待对面提问…</p>
+                <p class="empty-sub">识别到问题后，提示会实时出现在这里</p>
+              </div>
+            </div>
+            <div class="phone-foot">⚠️ 仅用于模拟练习 · 练到不依赖 AI</div>
+          </div>
+          <div class="my-turn-mask" id="myTurnMask">
+            <div class="mask-icon">🙋</div>
+            <p>检测到你在说话</p>
+            <span>提示已自动收起 · 松开继续</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ③ 练习回溯 -->
+  <section class="panel history-panel">
+    <div class="panel-head">
+      <h2>③ 练习回溯 <span class="hint">本场记录 · 自动保存在本机</span></h2>
+      <button id="clearHistory" class="btn ghost sm">清空记录</button>
+    </div>
+    <div id="historyList" class="history-list">
+      <p class="empty-hint">还没有记录。生成第一条提示后，这里会留档，方便复盘「哪题答得好 / 哪题卡壳」。</p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>面试助手 · 自用打磨期原型</span>
+    <span class="sep">|</span>
+    <span>数据仅存本机 · 音频不出本机 · 声纹本地存储</span>
+    <span class="sep">|</span>
+    <button id="footerSettings" class="linkbtn">配置 JD / 简历 / LLM →</button>
+  </footer>
+</div>
+
+<!-- ===== 配置抽屉 ===== -->
+<div class="drawer-mask" id="drawerMask"></div>
+<aside class="drawer" id="settingsDrawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h2>配置</h2>
+    <button id="closeSettings" class="icon-btn">✕</button>
+  </div>
+  <div class="drawer-body">
+
+    <details class="cfg-section" open>
+      <summary>① 目标 JD <span class="cfg-note">决定提示针对哪个岗位</span></summary>
+      <textarea id="cfgJd" rows="6" placeholder="粘贴要投岗位的 JD……"></textarea>
+    </details>
+
+    <details class="cfg-section" open>
+      <summary>② 我的简历 <span class="cfg-note">提示只引用真实经历，避免 AI 编造</span></summary>
+      <textarea id="cfgResume" rows="8" placeholder="粘贴简历文本，尽量包含项目、数据、结果……"></textarea>
+    </details>
+
+    <details class="cfg-section">
+      <summary>③ 预设陪练题 / 标准答案 <span class="cfg-note">可选 · 每题一行</span></summary>
+      <textarea id="cfgBank" rows="5" placeholder="每行一题，可写「题目 → 参考答案要点」"></textarea>
+    </details>
+
+    <details class="cfg-section" open>
+      <summary>④ LLM 接入 <span class="cfg-note">留空则用内置本地提示引擎（离线可演示）</span></summary>
+      <label class="field">API Base URL
+        <input id="cfgBase" type="text" placeholder="https://api.openai.com/v1" />
+      </label>
+      <label class="field">API Key
+        <input id="cfgKey" type="password" placeholder="sk-…（仅存本机浏览器）" />
+      </label>
+      <label class="field">Model
+        <input id="cfgModel" type="text" placeholder="gpt-4o-mini" />
+      </label>
+      <p class="cfg-help">兼容 OpenAI Chat Completions 格式即可（含自建 / 中转）。填写后自动生成真实提示；请求失败会自动降级到本地引擎。</p>
+      <div class="engine-status" id="engineStatus">当前引擎：本地结构化引擎</div>
+    </details>
+
+    <details class="cfg-section">
+      <summary>使用说明</summary>
+      <ol class="usage-list">
+        <li>先在上方填入目标 JD 和简历并保存。</li>
+        <li>回到主界面，点快捷题 / 输入问题 / 对着麦克风说。</li>
+        <li>手机提示屏约 1–3 秒出结构化提示；自己说话时点「我在说话」体验自动收起。</li>
+        <li>每轮结束在提示卡或回溯里标注「答得好 / 卡壳」，用于复盘。</li>
+      </ol>
+      <p class="cfg-help">真实 M0 还需 macOS 虚拟声卡（BlackHole）+ 声纹模型 + WebSocket + iOS 端；本原型用浏览器能力做了等价演示替代。</p>
+    </details>
+  </div>
+  <div class="drawer-foot">
+    <button id="resetCfg" class="btn ghost">恢复示例</button>
+    <button id="saveCfg" class="btn primary">保存配置</button>
+  </div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

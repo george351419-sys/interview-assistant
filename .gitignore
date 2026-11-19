@@ -1,0 +1,12 @@
+# Credentials and user-specific local data
+.env
+.env.*
+!.env.example
+data/config.json
+data/history/
+
+# Local development artifacts
+node_modules/
+.DS_Store
+npm-debug.log*
+*.log

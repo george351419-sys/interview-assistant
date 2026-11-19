@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>我的回答 · 面试助手</title>
+<link rel="stylesheet" href="css/app.css" />
+<style>
+  .mic-btn{width:100%;padding:22px;font-size:17px;border-radius:14px;font-weight:700;}
+  .mic-btn.live{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(217,48,37,.4)}50%{box-shadow:0 0 0 14px rgba(217,48,37,0)}}
+  .live-text{min-height:110px;padding:14px;border:1px dashed var(--border-strong);border-radius:10px;background:var(--surface-2);font-size:16px;line-height:1.6;}
+  .mem-item{padding:7px 10px;border-bottom:1px solid var(--border);font-size:13px;}
+  .mem-item .k{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;background:var(--blue-soft);color:var(--blue);margin-right:6px;}
+  .row-tight{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap">
+  <div class="panel">
+    <h2>我的回答 <span id="statusChip" class="badge warn" style="margin-left:6px">待机</span></h2>
+    <p class="sub">你说话时，这里用浏览器采集麦克风 PCM，经服务端转发给豆包流式 ASR 转写。转写结果写入「会话记忆」，下一题的提示会自动避开你已说过的内容。</p>
+
+    <div class="compliance" style="margin-bottom:16px">⚠️ 仅用于模拟练习 · 对面是朋友或 AI，不是真实雇主</div>
+
+    <button id="mic" class="btn mic-btn">🎤 点击开始回答</button>
+    <div id="asrCfgWarn" class="warn-box" style="display:none;margin-top:10px"></div>
+
+    <h3 style="font-size:13px;margin:20px 0 8px">实时转写（豆包 ASR）</h3>
+    <div id="transcript" class="live-text muted">等待说话…</div>
+    <div class="row-tight" style="margin-top:10px">
+      <span id="asrInfo" class="muted"></span>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="submitText" class="btn primary">把这段文字作为我的回答 →</button>
+      <span class="muted">或手动输入回答（无需麦克风）</span>
+    </div>
+    <textarea id="textAnswer" rows="3" placeholder="输入你刚才的回答，回车发送（Ctrl+Enter 换行）…" style="margin-top:10px;width:100%"></textarea>
+
+    <h3 style="font-size:13px;margin:20px 0 8px">会话记忆 <span id="memCount" class="muted"></span></h3>
+    <div id="memList" class="log"><div class="muted">还没有记忆。回答几轮后，提炼的事实会出现在这里。</div></div>
+    <div class="row" style="margin-top:10px">
+      <button id="clearMem" class="btn">清空记忆</button>
+      <span class="muted">记忆只存在服务端内存，重启服务即清空</span>
+    </div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+(function(){
+  document.getElementById('nav').innerHTML = IAC.nav('me');
+  const $ = id => document.getElementById(id);
+  const transcript = $('transcript');
+  let lastFinal = '';
+
+  const client = new IAC.Client('me', {
+    onMessage: (m) => {
+      if (m.type === 'hello') { IAC.setConn('#conn','on','已连接'); checkAsr(); }
+      if (m.type === 'asr.started') { setChip('聆听中','live'); IAC.toast('豆包 ASR 已连接，开始说话'); }
+      if (m.type === 'asr.partial') {
+        transcript.textContent = m.text || '等待说话…';
+        transcript.classList.remove('muted');
+      }
+      if (m.type === 'asr.final') {
+        lastFinal = m.text || '';
+        transcript.textContent = lastFinal;
+        setChip('已记录','ok');
+        IAC.toast('回答已写入会话记忆');
+      }
+      if (m.type === 'asr.error') {
+        setChip('出错','warn');
+        IAC.toast(m.message);
+        $('asrCfgWarn').style.display='block';
+        $('asrCfgWarn').innerHTML='⚠️ 豆包 ASR 错误：'+escapeHtml(m.message)+'。可改用下方文字输入。';
+        stopMic();
+      }
+      if (m.type === 'answerEcho') {
+        transcript.textContent = m.text;
+        IAC.toast('回答已记录，下一题提示会参考它');
+      }
+      if (m.type === 'memory') renderMemory(m);
+    }
+  });
+
+  function setChip(text, cls){
+    const c=$('statusChip'); c.textContent=text;
+    c.className='badge '+(cls==='live'?'err':cls==='ok'?'ok':'warn');
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+  // 查询 ASR 配置状态
+  async function checkAsr(){
+    try{
+      const s = await fetch('/api/asr/status').then(r=>r.json());
+      if(!s.ready){
+        $('asrCfgWarn').style.display='block';
+        $('asrCfgWarn').innerHTML='⚠️ 豆包 ASR 未配置 API Key，语音转写不可用。请到配置台填写，或直接用下方文字输入回答。';
+        $('asrInfo').textContent='ASR 未配置 · 请用文字输入';
+      }else{
+        $('asrInfo').textContent='豆包流式 ASR · '+s.resourceId;
+      }
+    }catch(e){}
+  }
+
+  // ---- 麦克风 PCM 采集（16k / 16bit / mono）----
+  let audioCtx=null, processor=null, stream=null, recording=false;
+
+  function startMic(){
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      IAC.toast('当前浏览器不支持麦克风采集'); return;
+    }
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}})
+      .then(s=>{
+        stream=s;
+        audioCtx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+        const src = audioCtx.createMediaStreamSource(stream);
+        // ScriptProcessor: 每 4096 采样 ≈ 256ms，直接拿 Float32 PCM
+        processor = audioCtx.createScriptProcessor(4096, 1, 1);
+        processor.onaudioprocess = (e)=>{
+          if(!recording) return;
+          const f32 = e.inputBuffer.getChannelData(0);
+          const pcm = new Int16Array(f32.length);
+          for(let i=0;i<f32.length;i++){
+            const v=Math.max(-1,Math.min(1,f32[i]));
+            pcm[i]=v<0?v*0x8000:v*0x7FFF;
+          }
+          // base64
+          let bin='';const bytes=new Uint8Array(pcm.buffer);
+          for(let i=0;i<bytes.length;i++) bin+=String.fromCharCode(bytes[i]);
+          client.asrChunk(btoa(bin));
+        };
+        src.connect(processor);
+        processor.connect(audioCtx.destination);
+        recording=true;
+        client.asrStart();
+        client.state('answering');
+        transcript.textContent='聆听中…请开始回答';
+        transcript.classList.remove('muted');
+      })
+      .catch(e=>{ IAC.toast('麦克风访问失败：'+e.message); });
+  }
+
+  function stopMic(){
+    if(!recording) return;
+    recording=false;
+    client.asrStop();
+    client.state('idle');
+    try{ if(processor) processor.disconnect(); }catch(e){}
+    try{ if(audioCtx) audioCtx.close(); }catch(e){}
+    try{ if(stream) stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    processor=null;audioCtx=null;stream=null;
+    setChip('处理中…','warn');
+  }
+
+  $('mic').addEventListener('click',()=>{
+    if(recording){ stopMic(); }
+    else { lastFinal=''; transcript.textContent='正在连接…'; startMic(); }
+  });
+
+  function submitText(){
+    const t=$('textAnswer').value.trim();
+    if(!t){ IAC.toast('回答内容为空'); return; }
+    client.answer(t);
+    $('textAnswer').value='';
+    transcript.textContent=t;
+    transcript.classList.remove('muted');
+  }
+  $('submitText').addEventListener('click',submitText);
+  $('textAnswer').addEventListener('keydown',e=>{
+    if(e.key==='Enter' && !e.ctrlKey){ e.preventDefault(); submitText(); }
+  });
+
+  $('clearMem').addEventListener('click',()=>{
+    client.memoryClear();
+    $('memList').innerHTML='<div class="muted">已清空。</div>';
+  });
+
+  function renderMemory(m){
+    const facts=m.facts||[];
+    $('memCount').textContent='('+facts.length+' 条)';
+    if(!facts.length){ $('memList').innerHTML='<div class="muted">还没有记忆。</div>'; return; }
+    const labels={fact:'事实',mentioned:'提及',avoid:'勿重复',followup:'可追问'};
+    $('memList').innerHTML = facts.slice().reverse().map(f=>
+      '<div class="mem-item"><span class="k">'+(labels[f.kind]||f.kind)+'</span>'+escapeHtml(f.text)+'</div>'
+    ).join('');
+  }
+
+  // 进页面时拉一次当前记忆
+  client.send({type:'memory.get'});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>练习复盘 · 面试助手</title>
+<link rel="stylesheet" href="css/app.css" />
+<style>
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:18px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:var(--shadow);}
+  .stat .n{font-size:26px;font-weight:750;line-height:1.1;font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:12px;color:var(--text-3);margin-top:5px;}
+  .stat.hl .n{color:var(--blue);}
+  .stat.warn .n{color:var(--amber);}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
+  .round{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 16px;margin-bottom:12px;box-shadow:var(--shadow);}
+  .round .rh{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap;}
+  .round .idx{font-size:12px;font-weight:700;color:var(--text-3);}
+  .round .type{font-size:11px;font-weight:700;color:var(--red);background:var(--red-soft);padding:3px 9px;border-radius:20px;}
+  .round .dur{font-size:12px;color:var(--blue);font-variant-numeric:tabular-nums;}
+  .round .q{font-size:14.5px;font-weight:600;line-height:1.5;margin-bottom:10px;}
+  .round .ans{background:var(--bg);border-radius:9px;padding:10px 12px;font-size:13px;line-height:1.6;margin-bottom:9px;}
+  .round .ans .lb{font-size:11px;color:var(--text-3);display:block;margin-bottom:3px;}
+  .round .pts{font-size:12.5px;color:var(--text-2);}
+  .round .pts ol{margin:4px 0 0;padding-left:18px;}
+  .round .pts li{margin-bottom:2px;}
+  .rating-tag{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;}
+  .rating-tag.good{background:var(--green-soft);color:var(--green);}
+  .rating-tag.stuck{background:var(--amber-soft);color:var(--amber);}
+  .rating-tag.none{background:var(--bg);color:var(--text-3);}
+  .dist{font-size:12px;color:var(--text-2);}
+  .dist span{display:inline-block;background:var(--bg);border-radius:8px;padding:3px 9px;margin:2px 4px 2px 0;}
+  .empty-rev{text-align:center;color:var(--text-3);padding:60px 20px;}
+  .empty-rev .ic{font-size:48px;color:var(--border-strong);}
+  /* AI 评分卡 */
+  .eval{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;}
+  .eval .eh{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .eval .score{font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;min-width:56px;}
+  .eval .score.hi{color:var(--green);} .eval .score.md{color:var(--amber);} .eval .score.lo{color:var(--red);}
+  .eval .score small{font-size:12px;color:var(--text-3);font-weight:500;}
+  .eval .verdict{font-size:12.5px;color:var(--text-2);flex:1;}
+  .eval .dims{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+  .eval .dim{font-size:11px;color:var(--text-3);}
+  .eval .dim b{display:block;color:var(--text);font-size:12px;margin-bottom:3px;}
+  .eval .bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+  .eval .bar i{display:block;height:100%;background:var(--blue);border-radius:3px;}
+  .eval .sec{font-size:12px;margin-top:6px;line-height:1.6;}
+  .eval .sec b{color:var(--text-2);}
+  .eval .sec.up b{color:var(--green);} .eval .sec.down b{color:var(--red);}
+  .eval .better{background:var(--surface);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;padding:8px 10px;margin-top:8px;font-size:12.5px;line-height:1.6;color:var(--text-2);}
+  .eval .pending{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:7px;}
+  .eval .spin{width:12px;height:12px;border:2px solid var(--border-strong);border-top-color:var(--blue);border-radius:50%;animation:evs .7s linear infinite;}
+  @keyframes evs{to{transform:rotate(360deg)}}
+  /* 历史 & 进步 */
+  .section-title{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:700;margin:26px 0 12px;cursor:pointer;user-select:none;}
+  .section-title .caret{color:var(--text-3);font-size:13px;transition:transform .2s;}
+  .section-title.collapsed .caret{transform:rotate(-90deg);}
+  .section-body{}
+  .section-body.hidden{display:none;}
+  .prog-item{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-bottom:10px;}
+  .prog-item .pq{font-size:13px;font-weight:600;line-height:1.5;margin-bottom:9px;}
+  .prog-item .chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .prog-item .pt{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;padding:3px 10px;border-radius:16px;background:var(--bg);border:1px solid var(--border);}
+  .prog-item .pt.hi{background:var(--green-soft);color:var(--green);border-color:transparent;}
+  .prog-item .pt.lo{background:var(--red-soft);color:var(--red);border-color:transparent;}
+  .prog-item .arw{color:var(--text-3);font-size:12px;}
+  .prog-item .badge-delta{font-size:12px;font-weight:700;margin-left:6px;}
+  .prog-item .badge-delta.up{color:var(--green);} .prog-item .badge-delta.down{color:var(--red);}
+  .prog-item .meta{font-size:11px;color:var(--text-3);margin-top:7px;}
+  .hist-item{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .hist-item .hl{font-size:13px;}
+  .hist-item .hl .t{font-weight:650;}
+  .hist-item .hl .m{color:var(--text-3);font-size:12px;margin-left:8px;}
+  .hist-item .hr{display:flex;gap:6px;align-items:center;}
+  .hist-item .sc{font-size:13px;font-weight:700;color:var(--blue);font-variant-numeric:tabular-nums;}
+  .hist-view{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:12.5px;line-height:1.6;}
+  .hist-view .hv-h{font-weight:700;margin-bottom:6px;color:var(--blue);}
+  .hist-view .hv-row{margin:3px 0;color:var(--text-2);}
+  .prog-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:6px;}
+  .prog-badge.up{background:var(--green-soft);color:var(--green);}
+  .prog-badge.flat{background:var(--bg);color:var(--text-3);}
+  .prog-badge.down{background:var(--red-soft);color:var(--red);}
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap">
+  <div class="panel">
+    <h2>练习复盘 <span id="statusChip" class="badge warn" style="margin-left:6px">连接中</span></h2>
+    <p class="sub">本场练习的每一题、你的回答、耗时、自评与 AI 评分都汇总在这里。换场或结束时自动存档到本机，可跨场对比进步。</p>
+    <div class="compliance" style="margin-bottom:16px">⚠️ 复盘是为了练到不依赖 AI · 仅用于模拟练习</div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="toolbar">
+      <button id="exportBtn" class="btn primary">⬇ 导出复盘 Markdown</button>
+      <button id="retryBtn" class="btn" style="border-color:var(--red);color:var(--red)">🔁 重练卡壳题</button>
+      <button id="endRoundBtn" class="btn">✓ 结束本场并存档</button>
+      <button id="newRoundBtn" class="btn">↻ 开始新一轮练习</button>
+      <button id="refreshBtn" class="btn sm">刷新</button>
+      <span id="modeTag" class="muted"></span>
+    </div>
+
+    <div id="dist" class="dist"></div>
+    <div id="rounds" style="margin-top:16px"></div>
+
+    <div class="section-title" id="progTitle"><span>📈 进步趋势 <span class="muted" style="font-size:12px;font-weight:400">同一题跨场次的评分变化</span></span><span class="caret">▾</span></div>
+    <div class="section-body" id="progBody"><div id="progress" class="muted" style="font-size:13px">加载中…</div></div>
+
+    <div class="section-title" id="histTitle"><span>🗂 历史练习 <span class="muted" style="font-size:12px;font-weight:400">换场/结束时自动存档</span></span><span class="caret">▾</span></div>
+    <div class="section-body" id="histBody">
+      <div class="toolbar"><button id="histRefreshBtn" class="btn sm">刷新历史</button><button id="histClearBtn" class="btn sm" style="border-color:var(--red);color:var(--red)">清空历史</button></div>
+      <div id="histView"></div>
+      <div id="history"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+(function(){
+  document.getElementById('nav').innerHTML=IAC.nav('practice');
+  const $=id=>document.getElementById(id);
+  let current=null, progressData=[], viewingHistory=null;
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+  // progress 数据里带 question，用归一化文本匹配（服务端存档时已截断到200字并去空白）
+  function findProgress(q){
+    const key=String(q||'').replace(/\s+/g,' ').trim().slice(0,200);
+    return progressData.find(p=>String(p.question||'').replace(/\s+/g,' ').trim().slice(0,200)===key)||null;
+  }
+
+  const client=new IAC.Client('practice',{
+    onOpen:()=>{ IAC.setConn('#conn','on','已连接'); $('statusChip').textContent='已连接'; $('statusChip').className='badge ok'; client.sessionGet(); client.historyList(); },
+    onClose:()=>IAC.setConn('#conn','err','重连中'),
+    onMessage:(m)=>{
+      if(m.type==='session'){ current=m; if(!viewingHistory) render(m); }
+      if(m.type==='retry.result'){
+        if(m.count>0) IAC.toast('已抽出 '+m.count+' 道弱题，切到「提问端」开始重练');
+        else IAC.toast('本场还没有答过的题，先去练几题吧');
+      }
+      if(m.type==='history.list'){ progressData=m.progress||[]; renderProgress(); renderHistory(m.items||[]); }
+      if(m.type==='history.get'){
+        if(m.record){ viewingHistory=m.record; renderHistoryView(m.record); IAC.toast('已载入历史场次（只读）'); }
+      }
+      if(m.type==='session.reevaluated'){ IAC.toast(m.ok?'已重新提交 AI 评分':'该题没有可评分的回答'); }
+      if(m.type==='history.saved'){ IAC.toast('本场已存档'); client.historyList(); }
+      if(m.type==='history.changed'){ client.historyList(); }
+      if(m.type==='history.deleted'){ if(m.ok) IAC.toast('已删除该场'); client.historyList(); }
+      if(m.type==='history.cleared'){ IAC.toast('历史已清空（'+m.count+' 场）'); viewingHistory=null; $('histView').innerHTML=''; client.historyList(); }
+    }
+  });
+
+  function renderEval(r){
+    if(r.evalStatus==='pending'||(!r.eval&&!r.evalError)){
+      return `<div class="eval"><div class="pending"><span class="spin"></span> AI 教练正在评分…（提交回答后自动进行）</div></div>`;
+    }
+    if(r.evalStatus==='error'||!r.eval){
+      return `<div class="eval"><div class="pending" style="color:var(--text-3)">评分暂不可用${r.evalError?'：'+esc(r.evalError):''}<button class="btn sm reeval" data-id="${esc(r.id)}" style="margin-left:6px">重新评分</button></div></div>`;
+    }
+    const e=r.eval, t=Math.round(Number(e.total)||0);
+    const cls=t>=75?'hi':t<60?'lo':'md';
+    const dims=[['结构',e.scores&&e.scores.structure],['内容',e.scores&&e.scores.content],['证据',e.scores&&e.scores.evidence],['表达',e.scores&&e.scores.expression]];
+    const dimHtml=dims.map(([k,v])=>`<div class="dim"><b>${k} ${Number(v)||0}/25</b><div class="bar"><i style="width:${Math.max(0,Math.min(100,(Number(v)||0)/25*100))}%"></i></div></div>`).join('');
+    const up=(e.strengths||[]).length?`<div class="sec up"><b>✓ 做得好：</b>${e.strengths.map(esc).join('；')}</div>`:'';
+    const down=(e.improvements||[]).length?`<div class="sec down"><b>→ 下次改进：</b>${e.improvements.map(esc).join('；')}</div>`:'';
+    const better=e.betterAnswer?`<div class="better"><b>💡 更好的说法：</b>${esc(e.betterAnswer)}</div>`:'';
+    // 跨场进步对比：当前场这次评分 vs 历史同题评分
+    let progBadge='';
+    const pg=findProgress(r.question);
+    if(pg){
+      const histScores=pg.points.filter(p=>typeof p.total==='number').map(p=>p.total);
+      if(histScores.length){
+        const prev=histScores[histScores.length-1];
+        const d=t-prev;
+        const cls2=d>0?'up':d<0?'down':'flat';
+        progBadge=`<span class="prog-badge ${cls2}">上次 ${prev} → 这次 ${t}${d>0?' ↑'+d:d<0?' '+d:' 持平'}</span>`;
+      }
+    }
+    return `<div class="eval">
+      <div class="eh"><div class="score ${cls}">${t}<small>/100</small></div><div class="verdict">${esc(e.verdict||'')}${progBadge}</div></div>
+      <div class="dims">${dimHtml}</div>${up}${down}${better}
+    </div>`;
+  }
+
+  function renderProgress(){
+    const box=$('progress');
+    const items=(progressData||[]).filter(p=>p.points&&p.points.length>=2);
+    if(!items.length){ box.innerHTML='<span class="muted" style="font-size:12.5px">还没有可对比的记录。多练几场、或用「重练卡壳题」再练同一题，这里会显示分数变化。</span>'; return; }
+    box.innerHTML=items.map(p=>{
+      const scored=p.points.filter(x=>typeof x.total==='number');
+      const chain=p.points.map(x=>{
+        if(typeof x.total!=='number') return `<span class="pt" style="opacity:.55">未评分</span>`;
+        const c=x.total>=75?'hi':x.total<60?'lo':'';
+        return `<span class="pt ${c}">${x.total}</span>`;
+      }).join('<span class="arw">→</span>');
+      let deltaHtml='';
+      if(p.delta!=null && scored.length>1){
+        const d=p.delta;
+        deltaHtml=`<span class="badge-delta ${d>0?'up':d<0?'down':''}">${d>0?'↑ 进步 '+d+' 分':d<0?'↓ 退步 '+Math.abs(d)+' 分':'持平'}</span>`;
+      }
+      const meta=p.times+' 次练习'+(p.best!=null?' · 最高 '+p.best+' 分':'')+' · '+(p.type||'未分类');
+      return `<div class="prog-item">
+        <div class="pq">${esc(p.question)}</div>
+        <div class="chain">${chain}${deltaHtml}</div>
+        <div class="meta">${meta}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderHistory(items){
+    const box=$('history');
+    if(!items.length){ box.innerHTML='<div class="muted" style="font-size:12.5px;padding:6px 0">还没有历史场次。换场或点「开始新一轮」时会自动存档当前练习。</div>'; return; }
+    box.innerHTML=items.map(d=>{
+      const t=new Date(d.endedAt).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const sc=d.stats&&d.stats.avgScore!=null?`<span class="sc">均分 ${d.stats.avgScore}</span>`:'';
+      return `<div class="hist-item">
+        <div class="hl"><span class="t">${t}</span><span class="m">${d.mode==='retry'?'错题重练':d.mode==='mock'?'模拟面试':'自由提问'} · ${d.stats?d.stats.answered||0:0} 题${d.stats&&d.stats.stuck?' · 卡壳 '+d.stats.stuck:''}</span></div>
+        <div class="hr">${sc}<button class="btn sm hist-load" data-id="${esc(d.id)}">查看</button><button class="btn sm hist-del" data-id="${esc(d.id)}" style="border-color:var(--red);color:var(--red)">删除</button></div>
+      </div>`;
+    }).join('');
+    box.querySelectorAll('.hist-load').forEach(b=>b.addEventListener('click',()=>client.historyGet(b.dataset.id)));
+    box.querySelectorAll('.hist-del').forEach(b=>b.addEventListener('click',()=>{
+      if(confirm('删除这场历史记录？不可恢复。')) client.historyDelete(b.dataset.id);
+    }));
+  }
+
+  function renderHistoryView(rec){
+    const s=rec.stats||{}, rounds=rec.rounds||[];
+    const t=new Date(rec.endedAt).toLocaleString('zh-CN');
+    let html=`<div class="hist-view"><div class="hv-h">📁 历史场次 · ${t}（${s.mode==='retry'?'错题重练':s.mode==='mock'?'模拟面试':'自由提问'}）</div>`;
+    html+=`<div class="hv-row">已答 ${s.answered||0} 题 · 卡壳 ${s.stuck||0}${s.avgScore!=null?' · AI 均分 '+s.avgScore:''} · 用时 ${IAC.fmtDuration(s.elapsedMs||0)}</div>`;
+    for(const r of rounds){
+      html+=`<div class="hv-row" style="margin-top:8px"><b>${esc(r.question)}</b>${r.rating==='stuck'?' <span style="color:var(--amber)">🔁卡壳</span>':r.rating==='good'?' <span style="color:var(--green)">👍</span>':''}${typeof r.total==='number'?' <span style="color:var(--blue)">'+r.total+'/100</span>':''}</div>`;
+      html+=`<div class="hv-row" style="opacity:.8">答：${esc(r.answer||'（未答）')}</div>`;
+    }
+    html+=`<div style="margin-top:10px"><button class="btn sm" id="histBackBtn">← 返回本场复盘</button></div></div>`;
+    $('histView').innerHTML=html;
+    $('histBackBtn').addEventListener('click',()=>{ viewingHistory=null; $('histView').innerHTML=''; render(current); });
+    $('histView').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  // 评分失败后的「重新评分」按钮（列表为动态渲染，用事件委托）
+  $('rounds').addEventListener('click',(e)=>{
+    const b=e.target.closest('.reeval');
+    if(!b) return;
+    client.sessionReeval(b.dataset.id);
+    IAC.toast('已重新提交评分');
+  });
+
+  function render(m){
+    const s=m.stats||{}, rounds=m.rounds||[];
+    const statCells=[
+      ['hl',s.total||0,'总题数'],
+      ['',s.answered||0,'已回答'],
+      ['hl',IAC.fmtDuration(s.avgMs||0),'平均每题'],
+      ['',IAC.fmtDuration(s.totalMs||0),'回答总时长'],
+      [s.stuck?'warn':'',s.stuck||0,'卡壳次数'],
+      ['',IAC.fmtDuration(s.elapsedMs||0),'本场用时']
+    ];
+    if(s.avgScore!=null) statCells.splice(2,0,[
+      s.avgScore>=75?'hl':s.avgScore<60?'warn':'', s.avgScore+' <small style="font-size:13px;color:var(--text-3)">/100</small>', 'AI 平均分'
+    ]);
+    $('stats').innerHTML=statCells.map(([cls,a,b])=>`<div class="stat ${cls}"><div class="n">${a}</div><div class="l">${b}</div></div>`).join('');
+    $('modeTag').textContent='模式：'+(s.mode==='retry'?'错题重练':s.mode==='mock'?'模拟面试（题库）':'自由提问');
+    const dist=Object.entries(s.typeDist||{});
+    $('dist').innerHTML=dist.length?('题型分布：'+dist.map(([k,v])=>`<span>${esc(k)} ×${v}</span>`).join('')):'';
+
+    if(!rounds.length){
+      $('rounds').innerHTML='<div class="empty-rev"><div class="ic">◌</div><p>还没有练习记录</p><p style="font-size:12px">去提问端问几题，回答后回到这里复盘</p></div>';
+      return;
+    }
+    $('rounds').innerHTML=rounds.map((r,i)=>{
+      const rating=r.rating==='good'?'<span class="rating-tag good">👍 答得好</span>'
+        :r.rating==='stuck'?'<span class="rating-tag stuck">🔁 卡壳</span>'
+        :'<span class="rating-tag none">未自评</span>';
+      const ans=r.answer?`<div class="ans"><span class="lb">我的回答</span>${esc(r.answer)}</div>`:'';
+      const pts=(r.points&&r.points.length)?`<div class="pts"><b>提示要点</b><ol>${r.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ol></div>`:'';
+      const evalHtml=r.answer?renderEval(r):'';
+      return `<div class="round">
+        <div class="rh">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="idx">#${rounds.length-i}</span>
+            ${r.type?`<span class="type">${esc(r.type)}</span>`:''}
+            ${r.usedMemory?'<span class="rating-tag good">结合了上一轮回答</span>':''}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">${rating}<span class="dur">⏱ ${r.durationMs!=null?IAC.fmtDuration(r.durationMs):'—'}</span></div>
+        </div>
+        <div class="q">${esc(r.question)}</div>
+        ${ans}${evalHtml}${pts}
+      </div>`;
+    }).join('');
+  }
+
+  function exportMd(){
+    if(!current||!current.rounds||!current.rounds.length){ IAC.toast('没有可导出的记录'); return; }
+    const s=current.stats;
+    const L=[];
+    L.push('# 面试模拟练习 · 复盘报告');
+    L.push('');
+    L.push('- 练习模式：'+(s.mode==='retry'?'错题重练':s.mode==='mock'?'模拟面试（题库）':'自由提问'));
+    L.push('- 开始时间：'+new Date(s.startedAt).toLocaleString('zh-CN'));
+    L.push('- 总题数：'+s.total+' ｜ 已回答：'+s.answered+' ｜ 平均每题：'+IAC.fmtDuration(s.avgMs));
+    L.push('- 回答总时长：'+IAC.fmtDuration(s.totalMs)+' ｜ 卡壳：'+s.stuck+' 次');
+    if(s.avgScore!=null) L.push('- AI 平均分：'+s.avgScore+'/100（已评分 '+(s.scored||0)+' 题）');
+    if(s.typeDist&&Object.keys(s.typeDist).length) L.push('- 题型分布：'+Object.entries(s.typeDist).map(([k,v])=>k+'×'+v).join('、'));
+    L.push('');
+    L.push('---');L.push('');
+    current.rounds.slice().reverse().forEach((r,i)=>{
+      L.push('## 第 '+(i+1)+' 题'+(r.type?'（'+r.type+'）':''));
+      L.push('');
+      L.push('**题目**：'+r.question);
+      L.push('');
+      if(r.answer){ L.push('**我的回答**：'+r.answer); L.push(''); }
+      L.push('**耗时**：'+(r.durationMs!=null?IAC.fmtDuration(r.durationMs):'—')+' ｜ **自评**：'+(r.rating==='good'?'答得好':r.rating==='stuck'?'卡壳':'未自评'));
+      L.push('');
+      if(r.points&&r.points.length){ L.push('**提示要点**：'); r.points.forEach(p=>L.push('- '+p)); L.push(''); }
+      if(r.experiences&&r.experiences.length){ L.push('**可引用经历**：'); r.experiences.forEach(p=>L.push('- '+p)); L.push(''); }
+      if(r.pitfalls&&r.pitfalls.length){ L.push('**避坑**：'); r.pitfalls.forEach(p=>L.push('- '+p)); L.push(''); }
+      if(r.eval){
+        const e=r.eval, sc=e.scores||{};
+        L.push('**AI 评分：** '+e.total+'/100（结构 '+(sc.structure||0)+' · 内容 '+(sc.content||0)+' · 证据 '+(sc.evidence||0)+' · 表达 '+(sc.expression||0)+'）');
+        if(e.verdict) L.push('');
+        if(e.verdict) L.push('> '+e.verdict);
+        L.push('');
+        if(e.strengths&&e.strengths.length){ L.push('做得好：'+e.strengths.join('；')); L.push(''); }
+        if(e.improvements&&e.improvements.length){ L.push('下次改进：'+e.improvements.join('；')); L.push(''); }
+        if(e.betterAnswer){ L.push('更好的说法：'+e.betterAnswer); L.push(''); }
+      }
+      L.push('---');L.push('');
+    });
+    const blob=new Blob([L.join('\n')],{type:'text/markdown;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='面试练习复盘_'+new Date().toISOString().slice(0,10)+'.md';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    IAC.toast('复盘 Markdown 已导出');
+  }
+
+  $('exportBtn').addEventListener('click',exportMd);
+  $('retryBtn').addEventListener('click',()=>{
+    if(!current||!current.stats||!current.stats.answered){ IAC.toast('还没有答过的题，先去练几题'); return; }
+    if(confirm('把卡壳/低分的题抽出来重组一轮练习？\n（会切到提问端的「错题重练」模式，本场记录将重置）')){
+      client.sessionRetry();
+    }
+  });
+  $('refreshBtn').addEventListener('click',()=>{ client.sessionGet(); client.historyList(); });
+  $('newRoundBtn').addEventListener('click',()=>{
+    if(confirm('开始新一轮？当前复盘记录会自动存档。')){ client.sessionStart(current&&current.stats&&current.stats.mode==='mock'?'mock':'free'); IAC.toast('已开始新一轮（上一场已存档）'); }
+  });
+  $('endRoundBtn').addEventListener('click',()=>{
+    if(!current||!current.stats||!current.stats.answered){ IAC.toast('本场还没有已提交的回答'); return; }
+    if(confirm('结束本场并保存练习记录？')){ client.sessionEnd(); IAC.toast('正在保存本场练习…'); }
+  });
+  $('histRefreshBtn').addEventListener('click',()=>client.historyList());
+  $('histClearBtn').addEventListener('click',()=>{
+    if(confirm('清空所有历史练习记录？不可恢复。')) client.historyClear();
+  });
+  // 折叠区
+  function bindCollapse(titleId, bodyId){
+    const t=$(titleId), b=$(bodyId);
+    t.addEventListener('click',()=>{ b.classList.toggle('hidden'); t.classList.toggle('collapsed'); });
+  }
+  bindCollapse('progTitle','progBody');
+  bindCollapse('histTitle','histBody');
+})();
+</script>
+</body>
+</html>

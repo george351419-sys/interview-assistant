@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>提问端 · 面试助手</title>
+<link rel="stylesheet" href="css/app.css" />
+<style>
+  .mic-btn{width:100%;padding:22px;font-size:17px;border-radius:14px;font-weight:700;}
+  .mic-btn.live{background:var(--red);color:#fff;border-color:var(--red);animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(217,48,37,.4)}50%{box-shadow:0 0 0 14px rgba(217,48,37,0)}}
+  .live-text{min-height:96px;padding:14px;border:1px dashed var(--border-strong);border-radius:10px;background:var(--surface-2);font-size:16px;line-height:1.6;}
+  .log{max-height:260px;overflow:auto;font-size:12.5px;color:var(--text-2);}
+  .log div{padding:5px 0;border-bottom:1px solid var(--border);}
+  .log .t{color:var(--text-3);margin-right:8px;}
+  .quick{display:flex;gap:8px;flex-wrap:wrap;}
+  .quick button{border:1px solid var(--border);background:var(--surface-2);padding:6px 12px;border-radius:20px;font-size:12.5px;color:var(--text-2);}
+  .quick button:hover{border-color:var(--blue);color:var(--blue);}
+  .mode-tabs{display:flex;gap:6px;margin-bottom:14px;}
+  .mode-tabs button{flex:1;padding:9px;border:1px solid var(--border);background:var(--surface-2);border-radius:9px;font-size:13px;color:var(--text-2);}
+  .mode-tabs button.active{background:var(--text);color:#fff;border-color:var(--text);font-weight:600;}
+  .mock-box{display:none;border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface-2);margin-bottom:16px;}
+  .mock-box.on{display:block;}
+  .mock-progress{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .mock-progress .pg{font-size:12.5px;color:var(--text-2);}
+  .mock-q{padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:14.5px;line-height:1.55;margin-bottom:10px;min-height:44px;}
+  .mock-q.ref q{color:var(--text-2);font-size:13px;display:block;margin-top:8px;border-top:1px dashed var(--border);padding-top:8px;}
+  .mock-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .bank-list{max-height:170px;overflow:auto;margin-top:10px;font-size:12px;color:var(--text-2);}
+  .bank-list div{padding:5px 8px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .bank-list div:hover{background:var(--blue-soft);color:var(--blue);}
+  .bank-list div.done{opacity:.45;text-decoration:line-through;}
+  .bank-list div.cur{background:var(--blue-soft);color:var(--blue);font-weight:600;}
+  .capture-box{border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--surface-2);margin-bottom:14px;}
+  .capture-help{font-size:12px;color:var(--text-2);line-height:1.65;margin:8px 0 10px;}
+  .capture-btn{width:100%;padding:13px;font-weight:650;}
+</style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="wrap">
+  <div class="panel">
+    <h2>提问端 <span id="statusChip" class="badge warn" style="margin-left:6px">待机</span></h2>
+    <p class="sub">这是「面试官 / 朋友」说话的地方。点麦克风说话，浏览器真实转写后经服务端生成提示并推到手机。</p>
+
+    <div class="compliance" style="margin-bottom:16px">⚠️ 仅用于模拟练习 · 对面是朋友或 AI，不是真实雇主</div>
+
+    <div class="mode-tabs">
+      <button id="modeFree" class="active">🗣 自由提问</button>
+      <button id="modeMock">🎯 模拟面试（题库）</button>
+    </div>
+
+    <div id="mockBox" class="mock-box">
+      <div class="mock-progress">
+        <span class="pg" id="mockProgress">题库加载中…</span>
+        <button id="mockRestart" class="btn sm">↻ 重新开始</button>
+      </div>
+      <div class="mock-q" id="mockQ">点击「开始模拟面试」出题</div>
+      <div class="mock-actions">
+        <button id="mockNext" class="btn primary">开始模拟面试 →</button>
+        <button id="mockReveal" class="btn sm">显示参考答案</button>
+      </div>
+      <div class="bank-list" id="bankList"></div>
+    </div>
+
+    <div id="freeBox">
+    <div class="capture-box">
+      <b>网页会议自动听题</b>
+      <p class="capture-help">在电脑浏览器打开朋友的模拟会议后，点击下方按钮并选择会议标签页，勾选“共享标签页音频”。浏览器授权后，朋友的提问会自动转写并推送到手机。请确保朋友知情同意。仅用于朋友 / AI 模拟练习；需先在配置台设置豆包 ASR，音频会发送给火山引擎转写。</p>
+      <button id="captureMeeting" class="btn capture-btn">🔗 连接网页会议并开始听题</button>
+      <span id="captureStatus" class="muted" style="display:block;margin-top:7px">尚未连接会议音频</span>
+    </div>
+    <button id="mic" class="btn mic-btn">🎤 点击开始说话</button>
+    <div class="row" style="margin-top:10px">
+      <label class="muted">识别语言</label>
+      <select id="lang" style="width:auto">
+        <option value="zh-CN">中文普通话</option>
+        <option value="en-US">English (US)</option>
+      </select>
+      <span id="srSupport" class="muted"></span>
+    </div>
+
+    <h3 style="font-size:13px;margin:20px 0 8px">实时转写</h3>
+    <div id="transcript" class="live-text muted">等待说话…</div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="sendText" class="btn primary">发送这题 →</button>
+      <span class="muted">或直接用文字提问（无需麦克风）</span>
+    </div>
+    <input id="textInput" type="text" placeholder="输入问题，回车发送…" style="margin-top:10px" />
+
+    <h3 style="font-size:13px;margin:20px 0 8px">快捷测试题（逐字稿同款）</h3>
+    <div class="quick">
+      <button data-q="Your biggest client wants a refund, but company policy doesn't allow it. What would you say?（请用英语回答）">🌍 英文突袭</button>
+      <button data-q="明天产品必须上线，今晚发现支付功能可能让部分用户被重复扣款，客户不接受延期，老板也联系不上。你第一步做什么？">⚖️ 两难决策</button>
+      <button data-q="假设明天所有外卖平台都消失了，给你一千块，帮一家小餐馆在七天内重新拿到订单，你会怎么做？">💡 开放创意</button>
+      <button data-q="讲讲你主导过的最有挑战的一个项目，你是怎么做的，结果怎么样？">🔍 项目深挖</button>
+    </div>
+
+    <h3 style="font-size:13px;margin:20px 0 8px">发送记录</h3>
+    <div id="log" class="log"><div class="muted">尚无记录</div></div>
+    </div><!-- /freeBox -->
+  </div>
+</div>
+
+<script src="js/common.js"></script>
+<script>
+(function(){
+  document.getElementById('nav').innerHTML = IAC.nav('interviewer');
+  const client = new IAC.Client('interviewer', {
+    onOpen: () => IAC.setConn('#conn','on','已连接'),
+    onClose: () => IAC.setConn('#conn','err','已断开·重连中'),
+    onMessage: (m) => {
+      if (m.type === 'hello') {
+        document.querySelector('#statusChip').textContent = '已连接';
+        document.querySelector('#statusChip').className = 'badge ok';
+        IAC.setConn('#conn','on','已连接');
+      }
+      if (m.type === 'hint') {
+        addLog('✅ 提示已推送到手机：'+(m.hintType||m.type), true);
+        setChip('就绪','ok');
+      }
+      if (m.type === 'asr.started') { setCaptureStatus('已连接，正在听会议音频…','ok'); }
+      if (m.type === 'asr.partial' && captureActive) {
+        transcript.textContent=m.text||'正在识别会议提问…'; transcript.classList.remove('muted');
+      }
+      if (m.type === 'asr.final') {
+        transcript.textContent=m.text||''; transcript.classList.remove('muted');
+        if(m.text) addLog('🎧 会议提问已识别：'+m.text);
+      }
+      if (m.type === 'asr.error') {
+        setCaptureStatus('语音识别失败：'+m.message,'err');
+        IAC.toast(m.message);
+        stopMeetingCapture(false);
+      }
+      if (m.type === 'error') {
+        addLog('❌ '+m.message, true); IAC.toast(m.message); setChip('待机','warn');
+      }
+      if (m.type === 'retry.queue') {
+        loadRetryQueue(m.queue || []);
+      }
+    }
+  });
+
+  const mic = document.getElementById('mic');
+  const lang = document.getElementById('lang');
+  const transcript = document.getElementById('transcript');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, listening = false, finalText = '';
+  let captureStream=null, captureContext=null, captureProcessor=null, captureActive=false;
+
+  function setCaptureStatus(text,kind){
+    const el=document.getElementById('captureStatus');
+    el.textContent=text;
+    el.style.color=kind==='err'?'var(--red)':kind==='ok'?'var(--green)':'';
+  }
+  function downsampleTo16k(input,inputRate){
+    if(inputRate===16000) return input;
+    const ratio=inputRate/16000, length=Math.floor(input.length/ratio), output=new Int16Array(length);
+    for(let i=0;i<length;i++){
+      const start=Math.floor(i*ratio), end=Math.min(Math.floor((i+1)*ratio),input.length);
+      let sum=0; for(let j=start;j<end;j++) sum+=input[j];
+      const v=Math.max(-1,Math.min(1,sum/Math.max(1,end-start)));
+      output[i]=v<0?v*0x8000:v*0x7fff;
+    }
+    return output;
+  }
+  async function startMeetingCapture(){
+    if(!navigator.mediaDevices?.getDisplayMedia){ IAC.toast('当前浏览器不支持标签页音频共享，请使用最新版 Chrome'); return; }
+    try{
+      setCaptureStatus('请选择朋友的会议标签页，并勾选共享标签页音频…');
+      captureStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:true});
+      const tracks=captureStream.getAudioTracks();
+      if(!tracks.length){ stopMeetingCapture(false); setCaptureStatus('没有收到标签页音频。重新连接时请选择会议标签页并勾选“共享标签页音频”。','err'); return; }
+      captureContext=new (window.AudioContext||window.webkitAudioContext)({sampleRate:16000});
+      const source=captureContext.createMediaStreamSource(captureStream);
+      captureProcessor=captureContext.createScriptProcessor(4096,1,1);
+      captureProcessor.onaudioprocess=e=>{
+        if(!captureActive) return;
+        const pcm=downsampleTo16k(e.inputBuffer.getChannelData(0),captureContext.sampleRate);
+        const bytes=new Uint8Array(pcm.buffer); let binary='';
+        for(let i=0;i<bytes.length;i++) binary+=String.fromCharCode(bytes[i]);
+        client.asrChunk(btoa(binary));
+      };
+      source.connect(captureProcessor);
+      const silentOutput=captureContext.createGain(); silentOutput.gain.value=0;
+      captureProcessor.connect(silentOutput); silentOutput.connect(captureContext.destination);
+      captureActive=true; client.asrStart();
+      mic.disabled=true;
+      document.getElementById('captureMeeting').textContent='■ 停止会议听题';
+      setCaptureStatus('正在接收会议标签页音频…','ok');
+      captureStream.getVideoTracks().forEach(t=>t.onended=()=>stopMeetingCapture());
+      captureStream.getAudioTracks().forEach(t=>t.onended=()=>stopMeetingCapture());
+    }catch(e){ stopMeetingCapture(false); setCaptureStatus('连接失败：'+e.message,'err'); }
+  }
+  function stopMeetingCapture(sendStop=true){
+    const wasActive=captureActive; captureActive=false;
+    if(wasActive&&sendStop) client.asrStop();
+    try{if(captureProcessor)captureProcessor.disconnect()}catch{}
+    try{if(captureContext)captureContext.close()}catch{}
+    try{if(captureStream)captureStream.getTracks().forEach(t=>t.stop())}catch{}
+    captureProcessor=null;captureContext=null;captureStream=null;
+    const btn=document.getElementById('captureMeeting');
+    if(btn) btn.textContent='🔗 连接网页会议并开始听题';
+    if(typeof mic!=='undefined') mic.disabled=false;
+    if(wasActive) setCaptureStatus('会议听题已停止');
+  }
+  document.getElementById('captureMeeting').addEventListener('click',()=>captureActive?stopMeetingCapture():startMeetingCapture());
+
+  if (!SR) {
+    document.getElementById('srSupport').textContent = '（当前浏览器不支持语音识别，请用文字提问；推荐 Chrome）';
+    mic.disabled = true;
+  } else {
+    document.getElementById('srSupport').textContent = '（浏览器原生语音识别）';
+    rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = lang.value;
+    rec.onstart = () => {
+      listening = true; finalText='';
+      mic.classList.add('live'); mic.textContent='● 聆听中…点击停止并发送';
+      client.state('speaking');
+      setChip('聆听中','live');
+    };
+    rec.onresult = (e) => {
+      let interim='';
+      for (let i=e.resultIndex;i<e.results.length;i++){
+        const t=e.results[i][0].transcript;
+        if(e.results[i].isFinal) finalText += t; else interim += t;
+      }
+      transcript.textContent = (finalText+interim) || '等待说话…';
+      transcript.classList.remove('muted');
+      client.state('speaking');
+    };
+    rec.onerror = (e) => { if(e.error!=='aborted') IAC.toast('识别出错：'+e.error); };
+    rec.onend = () => {
+      if(listening){ // 非主动停止（超时）
+        listening=false; mic.classList.remove('live'); mic.textContent='🎤 点击开始说话';
+        client.state('idle'); setChip('待机','warn');
+        if(finalText.trim()) send(finalText.trim());
+      }
+    };
+  }
+  lang.addEventListener('change', ()=>{ if(rec) rec.lang=lang.value; });
+
+  function setChip(text, cls){
+    const c=document.getElementById('statusChip');
+    c.textContent=text; c.className='badge '+(cls==='live'?'err':cls==='ok'?'ok':'warn');
+  }
+  function send(q){
+    if(!q.trim()){IAC.toast('问题为空');return;}
+    client.question(q.trim());
+    client.state('idle');
+    addLog('➤ 已发送：'+q.trim());
+    transcript.textContent='等待说话…'; transcript.classList.add('muted');
+    finalText=''; setChip('处理中…','warn');
+  }
+
+  mic.addEventListener('click', ()=>{
+    if(!rec) return;
+    if(listening){ rec.stop(); listening=false; }
+    else { try{ rec.start(); }catch(e){} }
+  });
+  document.getElementById('sendText').addEventListener('click', ()=>send(document.getElementById('textInput').value));
+  document.getElementById('textInput').addEventListener('keydown', e=>{ if(e.key==='Enter') send(e.target.value); });
+  document.querySelectorAll('.quick button').forEach(b=>b.addEventListener('click',()=>send(b.dataset.q)));
+
+  function addLog(text, html){
+    const box=document.getElementById('log');
+    if(box.querySelector('.muted')) box.innerHTML='';
+    const d=document.createElement('div');
+    d.innerHTML='<span class="t">'+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span>'+(html?text:escapeHtml(text));
+    box.insertBefore(d,box.firstChild);
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+  // ===== 模拟面试（题库）模式 =====
+  let bank=[], mockIdx=-1, mockActive=false;
+  const $ = id => document.getElementById(id);
+  const freeBox=$('freeBox'), mockBox=$('mockBox');
+
+  function setMode(mock, opts){
+    opts=opts||{};
+    mockActive=mock;
+    $('modeMock').classList.toggle('active',mock);
+    $('modeFree').classList.toggle('active',!mock);
+    mockBox.classList.toggle('on',mock);
+    freeBox.style.display=mock?'none':'block';
+    if(mock){ if(!opts.skipLoad) loadBank(); if(!opts.skipStart) startSessionIfNeeded(); }
+  }
+  $('modeFree').addEventListener('click',()=>setMode(false));
+  $('modeMock').addEventListener('click',()=>setMode(true));
+
+  async function loadBank(){
+    try{
+      const d=await fetch('/api/bank').then(r=>r.json());
+      bank=d.items||[];
+      $('mockProgress').textContent='共 '+bank.length+' 题';
+      $('modeMock').textContent='🎯 模拟面试（题库）';
+      renderBankList();
+      if(bank.length && mockIdx<0){ $('mockNext').textContent='开始模拟面试 →'; }
+    }catch(e){ $('mockProgress').textContent='题库加载失败'; }
+  }
+  function renderBankList(){
+    $('bankList').innerHTML=bank.map((it,i)=>
+      `<div data-i="${i}" class="${i<mockIdx?'done':i===mockIdx?'cur':''}">${i+1}. ${escapeHtml(it.question)}${it.why?` <span style="color:var(--red);font-size:11px">[${escapeHtml(it.why)}]</span>`:''}</div>`
+    ).join('');
+    $('bankList').querySelectorAll('div').forEach(el=>el.addEventListener('click',()=>jumpTo(+el.dataset.i)));
+  }
+  function startSessionIfNeeded(){
+    // 进入模拟模式即开一场新练习（清记忆/回合），避免和自由提问混在一起
+    client.sessionStart('mock');
+  }
+  // 接收复盘页发来的「错题重练」队列：切成题库模式、替换题目、开新练习
+  function loadRetryQueue(queue){
+    if(!queue || !queue.length){ IAC.toast('没有可重练的题目'); return; }
+    bank=queue.map(x=>({question:x.question, reference:x.reference||'', why:x.why||''}));
+    mockIdx=-1;
+    setMode(true, {skipLoad:true, skipStart:true}); // 切界面，但别用普通题库覆盖重练队列
+    client.sessionStart('retry'); // 用 retry 模式标记本场，复盘页可识别
+    $('modeMock').textContent='🎯 错题重练';
+    $('mockProgress').textContent='重练 '+bank.length+' 题';
+    $('mockQ').innerHTML='<b>错题重练已就绪</b><br><span class="muted">点「开始重练 →」按弱题顺序逐题练习</span>';
+    $('mockNext').textContent='开始重练 →';
+    renderBankList();
+    IAC.toast('已载入 '+bank.length+' 道错题，切到提问端开始重练');
+    addLog('🔁 收到错题重练队列 '+queue.length+' 题', true);
+  }
+  function askMock(i){
+    if(i<0||i>=bank.length) return;
+    mockIdx=i;
+    const it=bank[i];
+    $('mockQ').innerHTML=escapeHtml(it.question)+
+      (it.reference?'<q>参考思路：'+escapeHtml(it.reference)+'</q>':'');
+    const refEl=$('mockQ').querySelector('q');
+    if(refEl) refEl.style.display='none';
+    $('mockProgress').textContent='第 '+(i+1)+' / '+bank.length+' 题';
+    $('mockNext').textContent=i>=bank.length-1?'已是最后一题 ✓':'下一题 →';
+    send(it.question);              // 复用原有提问链路 → 真实 LLM → 手机提示
+    renderBankList();
+  }
+  function jumpTo(i){ askMock(i); }
+  $('mockNext').addEventListener('click',()=>{
+    if(!bank.length) return;
+    askMock(mockIdx+1<bank.length?mockIdx+1:mockIdx);
+  });
+  $('mockReveal').addEventListener('click',()=>{
+    const q=$('mockQ').querySelector('q');
+    if(q) q.style.display=q.style.display==='none'?'block':'none';
+  });
+  $('mockRestart').addEventListener('click',()=>{
+    mockIdx=-1; startSessionIfNeeded();
+    $('mockQ').textContent='点击「开始模拟面试」出题';
+    $('mockNext').textContent='开始模拟面试 →';
+    $('mockProgress').textContent='共 '+bank.length+' 题';
+    renderBankList(); IAC.toast('已重置练习，从头开始');
+  });
+})();
+</script>
+</body>
+</html>

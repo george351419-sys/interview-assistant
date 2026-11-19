@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>手机提示屏 · 面试助手</title>
+<link rel="stylesheet" href="css/app.css" />
+<style>
+  body{background:#eef0f3;}
+  .phone-head{padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5;}
+  .phone-head .t{font-weight:700;font-size:15px;}
+  .stack{padding:12px;display:flex;flex-direction:column;gap:12px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 15px;box-shadow:var(--shadow);animation:in .35s ease both;}
+  @keyframes in{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+  .card.old{opacity:.55;transform:scale(.98);filter:grayscale(.5);}
+  .card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .type{font-size:12px;font-weight:700;color:var(--red);background:var(--red-soft);padding:3px 10px;border-radius:20px;}
+  .src{font-size:11px;color:var(--text-3);}
+  .q{font-size:15px;font-weight:650;line-height:1.5;padding-bottom:9px;border-bottom:1px solid var(--border);margin-bottom:10px;}
+  .headline{background:var(--blue-soft);color:#1d4ed8;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600;line-height:1.55;margin-bottom:11px;}
+  .blk{margin-bottom:10px;}
+  .blk h3{font-size:12px;color:var(--text-2);margin:0 0 4px;letter-spacing:.3px;}
+  .blk ol,.blk ul{margin:0;padding-left:19px;}
+  .blk li{font-size:14px;line-height:1.55;margin-bottom:3px;}
+  .blk.pit li{color:var(--amber);}
+  .en .en-opener{font-size:14px;color:#1d4ed8;background:var(--blue-soft);padding:10px 12px;border-radius:10px;margin:0;font-style:italic;line-height:1.5;}
+  .foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px;margin-top:10px;}
+  .fold{border:none;background:none;color:var(--text-3);font-size:12px;}
+  .rate{display:flex;gap:6px;}
+  .rate button{border:1px solid var(--border);background:var(--surface);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--text-2);}
+  .rate button.pick{background:var(--green-soft);border-color:var(--green);color:var(--green);font-weight:600;}
+  .collapsed .body{display:none;}
+  .empty{text-align:center;color:var(--text-3);padding:80px 20px;}
+  .empty .ic{font-size:52px;color:var(--border-strong);}
+  .error-card{border-color:#f6cfca;background:var(--red-soft);}
+  .error-card .type{background:var(--red);color:#fff;}
+  .error-card pre{white-space:pre-wrap;word-break:break-word;font-size:12px;color:#8f1d16;margin:8px 0 0;}
+  .mem-flag{font-size:11px;color:var(--green);background:var(--green-soft);padding:4px 10px;border-radius:8px;margin-bottom:8px;display:inline-block;}
+  .answer-echo{position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(80px);opacity:0;z-index:20;background:#1f2937;color:#fff;font-size:12px;padding:9px 16px;border-radius:20px;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .35s ease;box-shadow:0 6px 20px rgba(0,0,0,.2);}
+  .answer-echo.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .ae-dot{display:inline-block;width:7px;height:7px;background:#4ade80;border-radius:50%;margin-right:6px;}
+  .thinking{display:flex;align-items:center;gap:8px;color:var(--text-2);font-size:13px;padding:6px 2px;}
+  .spinner{width:14px;height:14px;border:2px solid var(--border-strong);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .session-bar{display:flex;gap:8px;padding:0 12px 10px;flex-wrap:wrap;}
+  .stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 11px;font-size:12px;color:var(--text-2);box-shadow:var(--shadow);}
+  .stat-pill b{color:var(--text);font-size:14px;}
+  .timer{font-variant-numeric:tabular-nums;font-weight:700;color:var(--blue);}
+  .timer.warnc{color:var(--amber);}
+  .timer.hot{color:var(--red);}
+  .timer-line{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text-2);background:var(--bg);padding:3px 9px;border-radius:8px;}
+  .eval-badge{margin-top:9px;font-size:12px;line-height:1.5;color:var(--blue);background:var(--blue-soft);border-radius:9px;padding:7px 10px;animation:in .3s ease both;}
+  .extra{border-top:1px solid var(--border);padding-top:8px;margin-top:8px;}
+  .extra summary{font-size:12px;color:var(--text-3);cursor:pointer;}
+  .answering{margin:12px;background:#e9f7f0;border:1px solid #b9e5cf;color:#126344;border-radius:12px;padding:18px;text-align:center;font-weight:650;}
+  .mode-switch{display:flex;gap:8px;padding:10px 12px 0;}
+  .mode-switch button{flex:1;border:1px solid var(--border-strong);background:var(--surface);border-radius:10px;padding:9px 8px;font-size:12px;color:var(--text-2);}
+  .mode-switch button.active{background:#1f2937;color:#fff;border-color:#1f2937;font-weight:650;}
+  .mode-note{padding:5px 14px 0;color:var(--text-3);font-size:11px;}
+  .sample-answer{background:#f8f5ff;border:1px solid #e5dcff;border-radius:10px;padding:12px;margin:10px 0;color:#43346b;font-size:14px;line-height:1.7;white-space:pre-wrap;}
+  .card.outline-only .sample-answer-wrap{display:none;}
+  body.practice-mode .sample-answer-wrap{display:none;}
+  .sample-label{font-size:11px;font-weight:700;color:#7658b5;margin-bottom:5px;}
+  .step-up{border:0;background:none;color:var(--blue);font-size:12px;padding:4px 0;}
+  body.is-answering.practice-mode #stack,body.is-answering.practice-mode #thinking{display:none!important;}
+</style>
+</head>
+<body>
+  <div class="phone-head">
+    <div class="t">📱 手机提示屏</div>
+    <span id="conn" class="conn-pill"><span class="dot"></span><span class="text">连接中</span></span>
+  </div>
+  <div class="compliance" style="margin:12px 12px 0">⚠️ 仅用于模拟练习 · 练到不依赖 AI</div>
+  <div class="mode-switch" role="group" aria-label="练习模式">
+    <button id="guidedMode" type="button">入门：完整示范</button>
+    <button id="practiceMode" type="button">进阶：回答时收起</button>
+  </div>
+  <div class="mode-note" id="modeNote">先看一遍完整示范；准备好后可切换到进阶模式。</div>
+  <div class="session-bar" id="sessionBar">
+    <span class="stat-pill">第 <b id="sNum">0</b> 题</span>
+    <span class="stat-pill">本场 <b id="sElapsed">0 秒</b></span>
+    <span class="stat-pill">卡壳 <b id="sStuck">0</b></span>
+  </div>
+  <div id="thinking" class="thinking hidden" style="padding:10px 16px"><span class="spinner"></span> AI 正在组织提示…</div>
+  <div id="answering" class="answering" hidden>轮到你回答了<br><span style="font-weight:400;font-size:13px">提示已收起，先用自己的话作答</span></div>
+  <div id="stack" class="stack">
+    <div class="empty" id="empty"><div class="ic">◌</div><p>等待对面提问…</p><p style="font-size:12px">提示会实时出现在这里</p></div>
+  </div>
+
+<script src="js/common.js"></script>
+<script>
+(function(){
+  const stack=document.getElementById('stack');
+  const thinking=document.getElementById('thinking');
+  const modeNote=document.getElementById('modeNote');
+  let practiceMode=localStorage.getItem('ia-phone-mode')==='practice';
+  let answeringNow=false;
+  let client=null;
+  function setPracticeMode(value){
+    practiceMode=!!value;
+    localStorage.setItem('ia-phone-mode',practiceMode?'practice':'guided');
+    document.getElementById('practiceMode').classList.toggle('active',practiceMode);
+    document.getElementById('guidedMode').classList.toggle('active',!practiceMode);
+    document.body.classList.toggle('practice-mode',practiceMode);
+    document.body.classList.toggle('is-answering',practiceMode && answeringNow);
+    document.getElementById('answering').hidden=!(practiceMode && answeringNow);
+    if(!practiceMode) stack.querySelectorAll('.card.outline-only').forEach(c=>c.classList.remove('outline-only'));
+    if(client) client.send({type:'phone.mode',mode:practiceMode?'practice':'guided'});
+    modeNote.textContent=practiceMode?'练习时提示自动收起；下一题或追问到来时继续显示。':'完整示范常驻，参考后可点卡片里的“我来试试只看提纲”。';
+  }
+  document.getElementById('guidedMode').addEventListener('click',()=>setPracticeMode(false));
+  document.getElementById('practiceMode').addEventListener('click',()=>setPracticeMode(true));
+  setPracticeMode(practiceMode);
+  let currentTimerEl=null;
+  const timer=new IAC.PracticeTimer((ms)=>{
+    if(!currentTimerEl) return;
+    currentTimerEl.textContent=IAC.fmtDuration(ms);
+    currentTimerEl.className='timer'+(ms>120000?' hot':ms>60000?' warnc':'');
+  });
+  const sessionClock=setInterval(()=>{
+    if(lastSession&&lastSession.stats){
+      document.getElementById('sElapsed').textContent=IAC.fmtDuration(
+        lastSession.stats.elapsedMs+(Date.now()-(lastSession._at||Date.now())));
+    }
+  },1000);
+  let lastSession=null;
+
+  client=new IAC.Client('phone',{
+    onOpen:()=>{ IAC.setConn('#conn','on','已连接'); client.sessionGet(); client.send({type:'phone.mode',mode:practiceMode?'practice':'guided'}); },
+    onClose:()=>{
+      IAC.setConn('#conn','err','重连中');
+      answeringNow=false;
+      document.body.classList.remove('is-answering');
+      document.getElementById('answering').hidden=true;
+    },
+    onMessage:(m)=>{
+      if(m.type==='hello') IAC.setConn('#conn','on','已连接');
+      if(m.type==='listening'){ thinking.classList.remove('hidden'); }
+      if(m.type==='hint'){ thinking.classList.add('hidden'); renderHint(m); }
+      if(m.type==='error'){ thinking.classList.add('hidden'); renderError(m); }
+      if(m.type==='answerEcho'){ showAnswerEcho(m.text); }
+      if(m.type==='answer.eval'){ showEvalBadge(m); }
+      if(m.type==='answerTimerStop'){ timer.stop(); currentTimerEl=null; }
+      if(m.type==='speaker' && m.from==='me'){
+        answeringNow=m.state==='answering';
+        const active=practiceMode && answeringNow;
+        document.body.classList.toggle('is-answering',active);
+        document.getElementById('answering').hidden=!active;
+      }
+      if(m.type==='session'){ lastSession={...m,_at:Date.now()}; updateBar(m.stats); }
+    }
+  });
+
+  function updateBar(s){
+    if(!s) return;
+    document.getElementById('sNum').textContent=s.total||0;
+    document.getElementById('sStuck').textContent=s.stuck||0;
+    document.getElementById('sElapsed').textContent=IAC.fmtDuration(s.elapsedMs||0);
+  }
+
+  function showAnswerEcho(text){
+    let el=document.getElementById('answerEcho');
+    if(!el){ el=document.createElement('div'); el.id='answerEcho'; el.className='answer-echo';
+      stack.parentNode.insertBefore(el,stack); }
+    el.innerHTML='<span class="ae-dot"></span> 已记下你的回答：'+esc(String(text).slice(0,40))+'…';
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t=setTimeout(()=>el.classList.remove('show'),4000);
+  }
+
+  function showEvalBadge(m){
+    const card=stack.querySelector('.card[data-id="'+String(m.id||'').replace(/[^\w-]/g,'')+'"]');
+    if(!card) return;
+    let el=card.querySelector('.eval-badge');
+    if(!el){ el=document.createElement('div'); el.className='eval-badge';
+      const body=card.querySelector('.body'); (body||card).appendChild(el); }
+    el.textContent='AI 教练评分 '+m.total+'/100'+(m.verdict?' · '+String(m.verdict).slice(0,28):'');
+  }
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+  function clearEmpty(){ const e=document.getElementById('empty'); if(e) e.remove(); }
+  function sinkOld(){ stack.querySelectorAll('.card').forEach(c=>c.classList.add('old')); }
+
+  function renderHint(m){
+    clearEmpty(); sinkOld();
+    const card=document.createElement('div'); card.className='card'; card.dataset.id=m.id;
+    const en=m.englishOpener?`<div class="blk en"><h3>英文开头</h3><p class="en-opener">${esc(m.englishOpener)}</p></div>`:'';
+    const sample=!practiceMode?(m.sampleAnswer?`<div class="sample-answer-wrap"><div class="sample-label">完整示范 · 可参考结构与表达</div><div class="sample-answer">${esc(m.sampleAnswer)}</div><button class="step-up" type="button">我来试试只看提纲 →</button></div>`:`<div class="sample-answer-wrap"><div class="sample-label">完整示范</div><div class="sample-answer">这道题暂时没有生成完整示范，可以先参考下面的回答要点。</div></div>`):'';
+    card.innerHTML=`
+      <div class="top"><span class="type">${esc(m.hintType||m.type)}</span><span class="src">${esc(m.source)} · ${m.latencyMs||0}ms</span></div>
+      ${m.usedMemory?'<div class="mem-flag">✓ 已结合你上一轮的回答</div>':''}
+      <div class="q">${esc(m.question)}</div>
+      <div class="body">
+        ${sample}
+        <div class="headline">💡 ${esc(m.headline)}</div>
+        <div class="blk"><h3>回答要点</h3><ol>${(m.points||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol></div>
+        ${(m.experiences||[]).length?`<div class="blk"><h3>可引用经历</h3><ul>${(m.experiences||[]).slice(0,1).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+        <details class="extra"><summary>更多提示</summary>
+          ${(m.experiences||[]).length>1?`<div class="blk"><h3>其他相关经历</h3><ul>${m.experiences.slice(1).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`:''}
+          <div class="blk pit"><h3>避坑提示</h3><ul>${(m.pitfalls||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>${en}
+        </details>
+      </div>
+      <div class="foot">
+        <button class="fold">收起 ▲</button>
+        <span class="timer-line">⏱ 思考 <span class="timer">0 秒</span></span>
+        <div class="rate"><button data-r="good">👍 答得好</button><button data-r="stuck">🔁 卡壳</button></div>
+      </div>`;
+    stack.insertBefore(card,stack.firstChild);
+    stack.scrollTop=0;
+    const stepUp=card.querySelector('.step-up');
+    if(stepUp) stepUp.addEventListener('click',()=>{ card.classList.add('outline-only'); setPracticeMode(true); IAC.toast('已切换到进阶提示模式'); });
+    // 从提示推出开始计时；若已有回答则直接显示实际耗时
+    const tEl=card.querySelector('.timer');
+    if(m.answer){ tEl.textContent=IAC.fmtDuration(m.durationMs); tEl.className='timer'; }
+    else { currentTimerEl=tEl; timer.start(); }
+    card.querySelector('.fold').addEventListener('click',e=>{
+      card.classList.toggle('collapsed');
+      e.target.textContent=card.classList.contains('collapsed')?'展开 ▼':'收起 ▲';
+    });
+    card.querySelectorAll('.rate button').forEach(b=>b.addEventListener('click',()=>{
+      card.querySelectorAll('.rate button').forEach(x=>x.classList.remove('pick'));
+      b.classList.add('pick');
+      client.send({type:'rate',id:m.id,rating:b.dataset.r});
+      IAC.toast(b.dataset.r==='good'?'已标注：答得好':'已标注：卡壳');
+    }));
+  }
+
+  function renderError(m){
+    clearEmpty(); sinkOld();
+    const card=document.createElement('div'); card.className='card error-card';
+    card.innerHTML=`
+      <div class="top"><span class="type">未生成提示</span><span class="src">${esc(m.code||'ERROR')}</span></div>
+      <div class="q">${esc(m.question)}</div>
+      <pre>${esc(m.message)}${m.detail?'\n\n'+esc(String(m.detail).slice(0,300)):''}</pre>`;
+    stack.insertBefore(card,stack.firstChild);
+    stack.scrollTop=0;
+  }
+})();
+</script>
+</body>
+</html>
