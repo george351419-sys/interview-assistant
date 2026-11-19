@@ -78,6 +78,8 @@ npm start
 
 GitHub 用来保存和协作管理代码；GitHub Pages 只托管静态文件，不能运行本项目需要的 Node.js 服务和 WebSocket。仓库提供 `render.yaml`，可通过 Render 创建 Node Web Service 并获得公网 HTTPS 地址。
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fgeorge351419-sys%2Finterview-assistant)
+
 从 GitHub 导入 `george351419-sys/interview-assistant` 时选择 **Blueprint**，按提示设置 `APP_PASSWORD`、`LLM_BASE_URL`、`LLM_MODEL`、`LLM_API_KEY`。`APP_SESSION_SECRET` 由 Render 生成。不要把密钥或个人简历提交到 GitHub；本地 `data/config.json`、练习历史与 `.env` 已加入忽略列表。生产模式没有 `APP_PASSWORD` / `APP_SESSION_SECRET` 时会拒绝启动；登录后 HTTP 页面、API 和 WebSocket 才能访问。
 
 Render 免费实例适合验收：闲置 15 分钟后会休眠，首次访问唤醒可能约需一分钟；实例文件系统是临时的，重启、休眠或重新部署后 `data/history/` 中的练习历史会丢失。需要长期保留历史时应接入持久化数据库或磁盘。
