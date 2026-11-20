@@ -136,6 +136,8 @@
     onMessage:(m)=>{
       if(m.type==='hello') IAC.setConn('#conn','on','已连接');
       if(m.type==='listening'){ thinking.classList.remove('hidden'); }
+      if(m.type==='hint.start'){ thinking.classList.add('hidden'); startHintStream(m); }
+      if(m.type==='hint.delta'){ updateHintStream(m); }
       if(m.type==='hint'){ thinking.classList.add('hidden'); renderHint(m); }
       if(m.type==='error'){ thinking.classList.add('hidden'); renderError(m); }
       if(m.type==='answerEcho'){ showAnswerEcho(m.text); }
@@ -182,13 +184,43 @@
   function clearEmpty(){ const e=document.getElementById('empty'); if(e) e.remove(); }
   function sinkOld(){ stack.querySelectorAll('.card').forEach(c=>c.classList.add('old')); }
 
+  function findHintCard(m){
+    return [...stack.querySelectorAll('.card[data-question-id]')].find(c=>c.dataset.questionId===String(m.questionId||'') && c.dataset.revision===String(m.revision||1));
+  }
+  function placeHintCard(card,m){
+    const newer=m.questionId&&[...stack.querySelectorAll('.card[data-question-id]')].find(c=>c.dataset.questionId===String(m.questionId)&&Number(c.dataset.revision)>Number(m.revision||1));
+    stack.querySelectorAll('.card').forEach(c=>c.classList.add('old'));
+    if(newer) newer.after(card); else stack.insertBefore(card,stack.firstChild);
+    (newer||card).classList.remove('old');
+  }
+  function startHintStream(m){
+    clearEmpty();
+    let card=findHintCard(m);
+    if(card) return;
+    card=document.createElement('div'); card.className='card streaming-hint'; card.dataset.id=m.id||''; card.dataset.questionId=m.questionId||''; card.dataset.revision=String(m.revision||1);
+    card.innerHTML=`<div class="top"><span class="type">${m.update?'补充后提示':'正在生成提示'}</span><span class="src">实时生成</span></div><div class="q">${esc(m.question)}</div><div class="body"><div class="headline">💡 <span class="live-headline">正在整理回答思路…</span></div><div class="sample-answer-wrap"><div class="sample-label">回答示范 · 实时生成</div><div class="sample-answer live-sample"></div></div></div>`;
+    placeHintCard(card,m);
+  }
+  function updateHintStream(m){
+    let card=findHintCard(m); if(!card){ startHintStream(m); card=findHintCard(m); }
+    if(!card) return;
+    if(m.headline) card.querySelector('.live-headline').textContent=m.headline;
+    if(m.sampleAnswer) card.querySelector('.live-sample').textContent=m.sampleAnswer;
+  }
+
   function renderHint(m){
-    clearEmpty(); sinkOld();
+    clearEmpty();
+    // 同一道题的补充版本排在前面；较早到达的旧版本仍保留在下面。
+    const newer = m.questionId && [...stack.querySelectorAll('.card[data-question-id]')]
+      .find(c => c.dataset.questionId===String(m.questionId) && Number(c.dataset.revision)>Number(m.revision||1));
+    stack.querySelectorAll('.card').forEach(c=>c.classList.add('old'));
     const card=document.createElement('div'); card.className='card'; card.dataset.id=m.id;
+    if(m.questionId) card.dataset.questionId=m.questionId;
+    card.dataset.revision=String(m.revision||1);
     const en=m.englishOpener?`<div class="blk en"><h3>英文开头</h3><p class="en-opener">${esc(m.englishOpener)}</p></div>`:'';
     const sample=!practiceMode?(m.sampleAnswer?`<div class="sample-answer-wrap"><div class="sample-label">完整示范 · 可参考结构与表达</div><div class="sample-answer">${esc(m.sampleAnswer)}</div><button class="step-up" type="button">我来试试只看提纲 →</button></div>`:`<div class="sample-answer-wrap"><div class="sample-label">完整示范</div><div class="sample-answer">这道题暂时没有生成完整示范，可以先参考下面的回答要点。</div></div>`):'';
     card.innerHTML=`
-      <div class="top"><span class="type">${esc(m.hintType||m.type)}</span><span class="src">${esc(m.source)} · ${m.latencyMs||0}ms</span></div>
+      <div class="top"><span class="type">${esc(m.hintType||m.type)}${m.update?' · 补充后提示':''}</span><span class="src">${esc(m.source)} · ${m.latencyMs||0}ms</span></div>
       ${m.usedMemory?'<div class="mem-flag">✓ 已结合你上一轮的回答</div>':''}
       <div class="q">${esc(m.question)}</div>
       <div class="body">
@@ -206,7 +238,11 @@
         <span class="timer-line">⏱ 思考 <span class="timer">0 秒</span></span>
         <div class="rate"><button data-r="good">👍 答得好</button><button data-r="stuck">🔁 卡壳</button></div>
       </div>`;
-    stack.insertBefore(card,stack.firstChild);
+    const streamCard=findHintCard(m);
+    if(streamCard) streamCard.replaceWith(card);
+    else if(newer) newer.after(card); else stack.insertBefore(card,stack.firstChild);
+    const currentTopForQuestion=newer||card;
+    currentTopForQuestion.classList.remove('old');
     stack.scrollTop=0;
     const stepUp=card.querySelector('.step-up');
     if(stepUp) stepUp.addEventListener('click',()=>{ card.classList.add('outline-only'); setPracticeMode(true); IAC.toast('已切换到进阶提示模式'); });

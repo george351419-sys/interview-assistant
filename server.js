@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const config = require('./lib/config');
 const llm = require('./lib/llm');
 const Hub = require('./lib/hub');
+const { listAudioDevices, SystemAudioCapture } = require('./lib/system-audio-capture');
 
 config.load();
 const PORT = Number(process.env.PORT || config.get().port || 8787);
@@ -20,6 +21,7 @@ if (process.env.NODE_ENV === 'production' && (!APP_PASSWORD || !SESSION_SECRET))
 const SESSION_TOKEN = AUTH_REQUIRED
   ? crypto.createHmac('sha256', SESSION_SECRET).update('interview-assistant-session-v1').digest('hex')
   : '';
+let systemAudioCapture = null;
 
 function hasValidSession(req) {
   if (!AUTH_REQUIRED || !SESSION_TOKEN) return !AUTH_REQUIRED;
@@ -105,6 +107,60 @@ const server = http.createServer(async (req, res) => {
 
   // ---- API ----
   if (p === '/api/health') return json(res, 200, { ok: true, time: Date.now(), version: '1.0.0' });
+
+  if (p === '/api/system-audio/devices' && req.method === 'GET') {
+    try {
+      const devices = await listAudioDevices();
+      return json(res, 200, { ok: true, devices: devices.map(d => ({ ...d, isBlackHole: /blackhole/i.test(d.name) })) });
+    } catch (e) {
+      return json(res, 400, { ok: false, error: e.message });
+    }
+  }
+
+  if (p === '/api/system-audio/status' && req.method === 'GET') {
+    return json(res, 200, { ok: true, status: systemAudioCapture ? systemAudioCapture.status() : { running: false } });
+  }
+
+  if (p === '/api/system-audio/start' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const devices = await listAudioDevices();
+      const device = devices.find(d => d.index === Number(body.deviceIndex));
+      if (!device) return json(res, 400, { ok: false, error: '没有找到所选音频设备，请刷新设备列表。' });
+      if (!/blackhole/i.test(device.name)) {
+        return json(res, 400, { ok: false, error: '请选择 BlackHole 虚拟音频设备；普通麦克风不会捕获会议播放声。' });
+      }
+      if (systemAudioCapture && systemAudioCapture.status().running) {
+        return json(res, 409, { ok: false, error: '系统音频采集已经在运行。' });
+      }
+      const capture = new SystemAudioCapture({
+        deviceIndex: device.index,
+        deviceName: device.name,
+        asrConfig: config.get().asr,
+        onTranscript: text => hub.submitMeetingQuestion(text, 'system-audio'),
+        onStatus: status => {
+          hub.broadcast({ type: 'systemAudio.status', status }, 'interviewer');
+          hub.broadcast({ type: 'systemAudio.status', status }, 'console');
+        }
+      });
+      systemAudioCapture = capture;
+      const status = await capture.start(device.name);
+      console.log(`[system-audio] 已启动 BlackHole 采集：${device.name} (${device.index})`);
+      return json(res, 200, { ok: true, status });
+    } catch (e) {
+      return json(res, 400, { ok: false, error: e.message });
+    }
+  }
+
+  if (p === '/api/system-audio/stop' && req.method === 'POST') {
+    try {
+      const status = systemAudioCapture ? await systemAudioCapture.stop() : { running: false };
+      systemAudioCapture = null;
+      return json(res, 200, { ok: true, status });
+    } catch (e) {
+      return json(res, 500, { ok: false, error: e.message });
+    }
+  }
 
   if (p === '/api/config' && req.method === 'GET') {
     return json(res, 200, { config: config.publicSafe(), llm: llm.status() });
@@ -225,6 +281,7 @@ hub.wss.on('connection', (ws) => {
 
 function shutdown(signal) {
   console.log(`[server] 收到 ${signal}，正在关闭服务…`);
+  if (systemAudioCapture) systemAudioCapture.stop().catch(() => {});
   clearInterval(heartbeat);
   hub.wss.close();
   server.close(() => process.exit(0));

@@ -106,44 +106,40 @@ Render 免费实例适合验收：闲置 15 分钟后会休眠，首次访问唤
 
 ---
 
-## 链路 C：系统音频自动采集（进阶，贴近 PRD M0）
+## 链路 C：BlackHole 系统音频采集（Mac 桌面会议 App）
 
-让 ffmpeg 自动捕获会议软件的「对面声音」，VAD 检测说话段，自动转写并推送问题——无需你手动说话。
+这条链路适用于腾讯会议、飞书等 **Mac 桌面版会议 App**：Mac 本机服务从 BlackHole 捕获会议播放声音，检测到一句话结束后调用已配置的豆包 ASR，再把提问送入同一套提示生成流程。网页标签页采集仍可用；两种采集方式择一启动。
 
-### 1. 装 BlackHole（捕获系统输出）
+### 1. 安装音频组件
 
-```bash
-brew install blackhole-2ch
-```
-
-装后在「系统设置 → 声音 → 输出」把 BlackHole 设为输出（或用「音频 MIDI 设置」创建多输出设备，把 BlackHole 和扬声器一起选中，这样你能听到、程序也能抓到）。会议软件（腾讯会议/Zoom）的输出也选 BlackHole。
-
-### 2. 确认设备
+在 Mac 终端运行：
 
 ```bash
-node capture/loopback.js --list
+brew install blackhole-2ch ffmpeg
 ```
 
-记下 BlackHole 的设备索引或名称。
+安装 BlackHole 后打开 macOS「音频 MIDI 设置」：
 
-### 3. 启动采集器（先启动服务端）
+1. 点左下角 `+`，创建「多输出设备」。
+2. 勾选 `BlackHole 2ch` 和你实际使用的扬声器或耳机。
+3. 在「系统设置 → 声音 → 输出」中选择这个多输出设备；会议 App 的声音输出设为系统默认或该多输出设备。
 
-云端 ASR（用同一个 key，省得装 whisper）：
-```bash
-node capture/loopback.js --asr openai --device "BlackHole 2ch" --asr-key sk-你的key
-```
+这样会议声音会同时送到 BlackHole 和耳机/扬声器。也可以只把会议 App 的输出单独指定为 BlackHole，但那样你可能听不到会议声音。
 
-本机 ASR（免费离线，需先装 whisper.cpp）：
-```bash
-brew install whisper-cpp
-# 下载中文模型到 ~/models/ggml-small.bin.zh
-node capture/loopback.js --asr whisper --device "BlackHole 2ch" \
-  --whisper-bin "$(which whisper-cli)" --whisper-model ~/models/ggml-small.bin.zh
-```
+首次开始采集时，如果 macOS 弹出麦克风权限提示，请允许当前运行 `npm start` 的终端应用访问麦克风。若之前点过拒绝，在「系统设置 → 隐私与安全性 → 麦克风」中打开终端应用的权限，然后重启服务。
 
-采集器做真实 VAD（能量阈值），检测到一段语音结束才转写，避免半句话就推送。转写结果通过 WebSocket 以 `interviewer` 角色推送，后续链路与 A/B 完全一致。
+### 2. 配置豆包 ASR
 
-> 没有 BlackHole 时，可用麦克风索引（如 `--device 1`）采集你自己的声音做链路测试，但那是「你的声音」不是「对面声音」，只用于验证采集管线。
+打开配置台，在「豆包 ASR」中填写火山引擎凭证和 Resource ID 并保存。该配置保存在 Mac 本机服务端，不需要把密钥写进命令行。
+
+### 3. 从提问端启动采集
+
+1. 保持 Mac 上的 `npm start` 服务运行；需要手机公网访问时，也保持 `cloudflared` 隧道运行。
+2. 在 Mac 的提问端页面进入「桌面会议 App / BlackHole 系统音频」区域，点「刷新设备」，选择带有「系统会议声音」标记的 `BlackHole 2ch`。
+3. 点「开始系统音频听题」，再回到腾讯会议/飞书桌面 App，让朋友说一句测试问题。
+4. 识别文本会出现在提问端，并继续生成提示推送到手机。结束后点「停止采集」。
+
+采集由 Mac 服务端启动 `ffmpeg`，检测到静音后结束当前语音段并提交豆包流式 ASR。若设备列表读不到，确认 Homebrew 安装完成、服务端已重启，并运行 `brew install blackhole-2ch ffmpeg`。请只在朋友知情同意的模拟练习中采集会议音频。
 
 ---
 
